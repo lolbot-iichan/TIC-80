@@ -154,14 +154,16 @@ static void setPixel(tic_machine* machine, s32 x, s32 y, u8 color)
 	if(x < machine->state.clip.l || y < machine->state.clip.t || x >= machine->state.clip.r || y >= machine->state.clip.b) return;
 
 	// TODO: check color bounds here
-	tic_tool_poke4(machine->memory.ram.vram.screen.data, y * TIC80_WIDTH + x, tic_tool_peek4(machine->memory.ram.vram.mapping, color));
+	// tic_tool_poke4(machine->memory.ram.vram.screen.data, y * TIC80_WIDTH + x, tic_tool_peek4(machine->memory.ram.vram.mapping, color));
+	*(machine->memory.screen + y * TIC80_WIDTH + x) = color;
 }
 
 static u8 getPixel(tic_machine* machine, s32 x, s32 y)
 {
 	if(x < 0 || y < 0 || x >= TIC80_WIDTH || y >= TIC80_HEIGHT) return 0;
 
-	return tic_tool_peek4(machine->memory.ram.vram.mapping, tic_tool_peek4(machine->memory.ram.vram.screen.data, y * TIC80_WIDTH + x));
+	// return tic_tool_peek4(machine->memory.ram.vram.mapping, tic_tool_peek4(machine->memory.ram.vram.screen.data, y * TIC80_WIDTH + x));
+	return *(machine->memory.screen + y * TIC80_WIDTH + x);
 }
 
 static void drawHLine(tic_machine* machine, s32 x, s32 y, s32 width, u8 color)
@@ -481,21 +483,25 @@ static void api_rect(tic_mem* memory, s32 x, s32 y, s32 width, s32 height, u8 co
 	drawRect(machine, x, y, width, height, color);
 }
 
+inline void memset4(void *dst, u32 val, u32 dwords);
+
 static void api_clear(tic_mem* memory, u8 color)
 {
-	static const Clip EmptyClip = {0, 0, TIC80_WIDTH, TIC80_HEIGHT};
+	// static const Clip EmptyClip = {0, 0, TIC80_WIDTH, TIC80_HEIGHT};
 
-	tic_machine* machine = (tic_machine*)memory;
+	// tic_machine* machine = (tic_machine*)memory;
 
-	if(memcmp(&machine->state.clip, &EmptyClip, sizeof(Clip)) == 0)
-	{
-		color &= 0b00001111;
-		memset(memory->ram.vram.screen.data, color | (color << TIC_PALETTE_BPP), sizeof(memory->ram.vram.screen.data));		
-	}
-	else
-	{
-		api_rect(memory, machine->state.clip.l, machine->state.clip.t, machine->state.clip.r - machine->state.clip.l, machine->state.clip.b - machine->state.clip.t, color);
-	}
+	// if(memcmp(&machine->state.clip, &EmptyClip, sizeof(Clip)) == 0)
+	// {
+	// 	color &= 0b00001111;
+	// 	memset(memory->ram.vram.screen.data, color | (color << TIC_PALETTE_BPP), sizeof(memory->ram.vram.screen.data));		
+	// }
+	// else
+	// {
+	// 	api_rect(memory, machine->state.clip.l, machine->state.clip.t, machine->state.clip.r - machine->state.clip.l, machine->state.clip.b - machine->state.clip.t, color);
+	// }
+
+	memset4(memory->screen, color, sizeof memory->screen/sizeof(u32));
 
 	memory->ram.vram.vars.bg = color & 0xf;
 }
@@ -1245,7 +1251,8 @@ static void initCover(tic_mem* tic)
 					const gif_color* c = &image->palette[image->buffer[i]];
 					tic_rgb rgb = { c->r, c->g, c->b };
 					u8 color = tic_tool_find_closest_color(tic->cart.palette.colors, &rgb);
-					tic_tool_poke4(tic->ram.vram.screen.data, i, color);
+					// tic_tool_poke4(tic->ram.vram.screen.data, i, color);
+					tic->screen[i] = color;
 				}
 			}
 
@@ -1656,11 +1663,13 @@ static void api_blit(tic_mem* tic, u32* out, tic_scanline scanline)
 		memset4(rowPtr + Left, pal[tic->ram.vram.vars.bg], TIC80_WIDTH);
 
 		u32* colPtr = rowPtr + Left;
+		u32* outPtr = tic->screen + y * TIC80_WIDTH + tic->ram.vram.vars.offset.x;
 
 		if(y >= 0 && y < TIC80_HEIGHT)
-			for(s32 c = 0, x = tic->ram.vram.vars.offset.x, index = y * TIC80_WIDTH + x; c < TIC80_WIDTH; c++, colPtr++, x++, index++)
+			for(s32 c = 0, x = tic->ram.vram.vars.offset.x; c < TIC80_WIDTH; c++, colPtr++, x++, outPtr++)
 				if(x >= 0 && x < TIC80_WIDTH)
-					*colPtr = pal[tic_tool_peek4(tic->ram.vram.screen.data, index)];
+					// *colPtr = pal[tic_tool_peek4(tic->ram.vram.screen.data, index)];
+					*colPtr = *(pal + *outPtr);
 
 		memset4(rowPtr + (TIC80_FULLWIDTH-Right), pal[tic->ram.vram.vars.border], Right);
 

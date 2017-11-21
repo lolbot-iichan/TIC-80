@@ -1825,29 +1825,29 @@ SDL_Event* pollEvent()
 
 static void transparentBlit(u32* out, s32 pitch)
 {
-	const u8* in = studio.tic->ram.vram.screen.data;
-	const u8* end = in + sizeof(studio.tic->ram.vram.screen);
-	const u32* pal = srcPaletteBlit(studio.tic->config.palette.data);
-	const u32 Delta = (pitch/sizeof *out - TIC80_WIDTH);
+	// const u8* in = studio.tic->ram.vram.screen.data;
+	// const u8* end = in + sizeof(studio.tic->ram.vram.screen);
+	// const u32* pal = srcPaletteBlit(studio.tic->config.palette.data);
+	// const u32 Delta = (pitch/sizeof *out - TIC80_WIDTH);
 
-	s32 col = 0;
+	// s32 col = 0;
 
-	while(in != end)
-	{
-		u8 low = *in & 0x0f;
-		u8 hi = (*in & 0xf0) >> TIC_PALETTE_BPP;
-		*out++ = low ? (*(pal + low) | 0xff000000) : 0;
-		*out++ = hi ? (*(pal + hi) | 0xff000000) : 0;
-		in++;
+	// while(in != end)
+	// {
+	// 	u8 low = *in & 0x0f;
+	// 	u8 hi = (*in & 0xf0) >> TIC_PALETTE_BPP;
+	// 	*out++ = low ? (*(pal + low) | 0xff000000) : 0;
+	// 	*out++ = hi ? (*(pal + hi) | 0xff000000) : 0;
+	// 	in++;
 
-		col += BITS_IN_BYTE / TIC_PALETTE_BPP;
+	// 	col += BITS_IN_BYTE / TIC_PALETTE_BPP;
 
-		if (col == TIC80_WIDTH)
-		{
-			col = 0;
-			out += Delta;
-		}
-	}
+	// 	if (col == TIC80_WIDTH)
+	// 	{
+	// 		col = 0;
+	// 		out += Delta;
+	// 	}
+	// }
 }
 
 static void blitSound()

@@ -128,6 +128,8 @@ struct tic_mem
 		s16* buffer;
 		s32 size;
 	} samples;
+
+	u32 screen[TIC80_WIDTH * TIC80_HEIGHT];
 };
 
 tic_mem* tic_create(s32 samplerate);
