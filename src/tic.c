@@ -850,7 +850,7 @@ static void setSideTexPixel(s32 x, s32 y, float u, float v)
 	}
 }
 
-static void api_circle(tic_mem* memory, s32 xm, s32 ym, u32 radius, u8 color)
+static void api_circle(tic_mem* memory, s32 xm, s32 ym, s32 radius, u8 color)
 {
 	tic_machine* machine = (tic_machine*)memory;
 
@@ -870,8 +870,8 @@ static void api_circle(tic_mem* memory, s32 xm, s32 ym, u32 radius, u8 color)
 		if (r > x || err > y) err += ++x*2+1;
 	} while (x < 0);
 
-	s32 yt = max(machine->state.clip.t, ym-(s32)radius);
-	s32 yb = min(machine->state.clip.b, ym+(s32)radius+1);
+	s32 yt = max(machine->state.clip.t, ym-radius);
+	s32 yb = min(machine->state.clip.b, ym+radius+1);
 	u8 final_color = mapColor(&machine->memory, color);
 	for(s32 y = yt; y < yb; y++) {
 		s32 xl = max(SidesBuffer.Left[y], machine->state.clip.l);
@@ -880,7 +880,7 @@ static void api_circle(tic_mem* memory, s32 xm, s32 ym, u32 radius, u8 color)
 	}
 }
 
-static void api_circle_border(tic_mem* memory, s32 xm, s32 ym, u32 radius, u8 color)
+static void api_circle_border(tic_mem* memory, s32 xm, s32 ym, s32 radius, u8 color)
 {
 	s32 r = radius;
 	s32 x = -r, y = 0, err = 2-2*r;
@@ -1594,9 +1594,11 @@ static void api_tick(tic_mem* memory, tic_tick_data* data)
 
 			if(done)
 			{
+				data->start = data->counter();
+
 				machine->state.scanline = (memory->script == tic_script_js) ? callJavascriptScanline : (memory->script == tic_script_bf) ? callBrainfuckScanline : callLuaScanline;
 				machine->state.ovr.callback = (memory->script == tic_script_js) ? callJavascriptOverlap : (memory->script == tic_script_bf) ? callBrainfuckOverlap : callLuaOverlap;
-				machine->state.initialized = true;				
+				machine->state.initialized = true;
 			}
 			else return;
 		}

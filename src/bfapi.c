@@ -864,6 +864,15 @@ static s32 bf_sync(bf_State* bf)
 	return 0;
 }
 
+static s32 bf_reset(bf_State* bf)
+{
+	tic_machine* machine = getBfMachine(bf);
+
+	machine->state.initialized = false;
+
+	return 0;
+}
+
 static s32 bf_memcpy(bf_State* bf)
 {
 	s32 top = bf_gettop(bf);
@@ -1129,8 +1138,10 @@ static const bf_function ApiFunc[] =
 	bf_rectb, bf_spr, bf_btn, bf_btnp, bf_sfx, bf_map, bf_mget, 
 	bf_mset, bf_peek, bf_poke, bf_peek4, bf_poke4, bf_memcpy, 
 	bf_memset, bf_trace, bf_pmem, bf_time, bf_exit, bf_font, bf_mouse, 
-	bf_circ, bf_circb, bf_tri, bf_textri, bf_clip, bf_music, bf_sync, 
+	bf_circ, bf_circb, bf_tri, bf_textri, bf_clip, bf_music, bf_sync, bf_reset, 
 };
+
+STATIC_ASSERT(api_func, COUNT_OF(ApiKeywords) == COUNT_OF(ApiFunc));
 
 // demos checklist
 // * bf_btnp:			bf_cls, bf_rect, bf_btnp

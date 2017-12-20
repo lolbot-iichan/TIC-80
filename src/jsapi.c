@@ -715,6 +715,15 @@ static duk_ret_t duk_sync(duk_context* duk)
 	return 0;
 }
 
+static duk_ret_t duk_reset(duk_context* duk)
+{
+	tic_machine* machine = getDukMachine(duk);
+
+	machine->state.initialized = false;
+
+	return 0;
+}
+
 static const char* const ApiKeywords[] = API_KEYWORDS;
 static const struct{duk_c_function func; s32 params;} ApiFunc[] = 
 {
@@ -753,13 +762,22 @@ static const struct{duk_c_function func; s32 params;} ApiFunc[] =
 	{duk_clip, 4},
 	{duk_music, 4},
 	{duk_sync, 3},
+	{duk_reset, 0},
 };
+
+s32 duk_timeout_check(void* udata)
+{
+	tic_machine* machine = (tic_machine*)udata;
+	tic_tick_data* tick = machine->data;
+
+	return tick->forceExit && tick->forceExit(tick->data);
+}
 
 static void initDuktape(tic_machine* machine)
 {
 	closeJavascript(machine);
 
-	duk_context* duk = machine->js = duk_create_heap_default();
+	duk_context* duk = machine->js = duk_create_heap(NULL, NULL, NULL, machine, NULL);
 
 	{
 		duk_push_global_stash(duk);
