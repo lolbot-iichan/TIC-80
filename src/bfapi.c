@@ -36,6 +36,8 @@
 #define BF_MAX_MEMORY 65536
 #define BF_MAX_CALL_RECURSION 16
 
+#define BF_LOC_STACK 1E8 // 100.000.000
+
 typedef s16 bfcell;
 
 struct bf_macro
@@ -111,6 +113,7 @@ enum
 	BfCodeTextTooLong,
 	BfCodeTextNotEnough,
 	BfCodeMacroCallOverflow,
+	BfCodeTerminated,
 	BfCodeMax,
 };
 static const char* BfCodeErr[] = {
@@ -128,6 +131,7 @@ static const char* BfCodeErr[] = {
 	"ERROR: Text line is too long",
 	"ERROR: Text API requires string length and bytes values or zero cell and single integer value",
 	"ERROR: Nested macro call overflow",
+    "ERROR: Terminated",
 	"ERROR: Unknown error, sorry",
 };
 
@@ -1371,8 +1375,16 @@ s32 runBfCode(bf_State* bf, const char* name, s32 namelen, s32 recursion)
 	s32 err = 0;
 	s32 codelen = strlen(code);
 	char* macro_call_name=NULL;
+	s32 cnt = 0;
 	for(s32 i=0;i<codelen && !err;i++)
 	{
+        if(cnt++ == BF_LOC_STACK)
+        {
+        	tic_tick_data* tick = getBfMachine(bf)->data;
+        	if(tick->forceExit && tick->forceExit(tick->data))
+        		return BfCodeTerminated;
+            cnt = 0;
+        }
 		if(!macro_call_name)
 		{
 			if(code[i]=='\\')
