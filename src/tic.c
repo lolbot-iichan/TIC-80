@@ -934,7 +934,7 @@ static void api_tri(tic_mem* memory, s32 x1, s32 y1, s32 x2, s32 y2, s32 x3, s32
 		s32 xl = max(SidesBuffer.Left[y], machine->state.clip.l);
 		s32 xr = min(SidesBuffer.Right[y]+1, machine->state.clip.r);
 		machine->state.drawhline(&machine->memory, xl, xr, y, final_color);
-    }
+	}
 }
 
 

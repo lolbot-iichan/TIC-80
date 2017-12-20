@@ -131,7 +131,7 @@ static const char* BfCodeErr[] = {
 	"ERROR: Text line is too long",
 	"ERROR: Text API requires string length and bytes values or zero cell and single integer value",
 	"ERROR: Nested macro call overflow",
-    "ERROR: Terminated",
+	"ERROR: Terminated",
 	"ERROR: Unknown error, sorry",
 };
 
@@ -841,7 +841,7 @@ static s32 bf_sync(bf_State* bf)
 
 	if(bf_gettop(bf) >= 1)
 	{
-        mask = getBfNumber(bf, 1);
+		mask = getBfNumber(bf, 1);
 
 		if(bf_gettop(bf) >= 2)
 		{
@@ -1389,13 +1389,13 @@ s32 runBfCode(bf_State* bf, const char* name, s32 namelen, s32 recursion)
 	s32 cnt = 0;
 	for(s32 i=0;i<codelen && !err;i++)
 	{
-        if(cnt++ == BF_LOC_STACK)
-        {
-        	tic_tick_data* tick = getBfMachine(bf)->data;
-        	if(tick->forceExit && tick->forceExit(tick->data))
-        		return BfCodeTerminated;
-            cnt = 0;
-        }
+		if(cnt++ == BF_LOC_STACK)
+		{
+			tic_tick_data* tick = getBfMachine(bf)->data;
+			if(tick->forceExit && tick->forceExit(tick->data))
+				return BfCodeTerminated;
+			cnt = 0;
+		}
 		if(!macro_call_name)
 		{
 			if(code[i]=='\\')
@@ -1462,9 +1462,9 @@ void closeBrainfuck(tic_machine* machine)
 {
 	if(machine->bf)
 	{
-    	for(s32 i=0;i<machine->bf->macro.count;i++)
-    	{
-    		free(machine->bf->macro.items[i].code);
+		for(s32 i=0;i<machine->bf->macro.count;i++)
+		{
+			free(machine->bf->macro.items[i].code);
 			free(machine->bf->macro.items[i].name);
 		}
 		free(machine->bf->macro.items);

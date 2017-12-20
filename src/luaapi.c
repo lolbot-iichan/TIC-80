@@ -792,7 +792,7 @@ static s32 lua_memcpy(lua_State* lua)
 		s32 dest = getLuaNumber(lua, 1);
 		s32 src = getLuaNumber(lua, 2);
 		s32 size = getLuaNumber(lua, 3);
-                s32 bound = sizeof(tic_ram) - size;
+		s32 bound = sizeof(tic_ram) - size;
 
 		if(size >= 0 && size <= sizeof(tic_ram) && dest >= 0 && src >= 0 && dest <= bound && src <= bound)
 		{
@@ -1247,12 +1247,12 @@ bool initMoonscript(tic_machine* machine, const char* code)
 
 void callLuaTick(tic_machine* machine)
 {
- 	const char* TicFunc = ApiKeywords[0];
+	const char* TicFunc = ApiKeywords[0];
 
- 	lua_State* lua = machine->lua;
+	lua_State* lua = machine->lua;
 
- 	if(lua)
- 	{
+	if(lua)
+	{
 		lua_getglobal(lua, TicFunc);
 		if(lua_isfunction(lua, -1)) 
 		{
@@ -1263,8 +1263,8 @@ void callLuaTick(tic_machine* machine)
 		{		
 			lua_pop(lua, 1);
 			machine->data->error(machine->data->data, "'function TIC()...' isn't found :(");
-		} 		
- 	}
+		}
+	}
 }
 
 void callLuaScanline(tic_mem* memory, s32 row, void* data)

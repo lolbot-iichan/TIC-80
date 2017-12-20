@@ -132,7 +132,7 @@ static void readGamepadTheme(Config* config, lua_State* lua)
 
 	if(lua_type(lua, -1) == LUA_TTABLE)
 	{
-        lua_getfield(lua, -1, "TOUCH");
+		lua_getfield(lua, -1, "TOUCH");
 
 		if(lua_type(lua, -1) == LUA_TTABLE)
 		{
