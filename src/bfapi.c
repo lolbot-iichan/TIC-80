@@ -91,7 +91,7 @@ struct bf_State
 	tic_machine* machine;
 };
 typedef struct bf_State bf_State;
-typedef s32 (*bf_function) (bf_State *bf);
+typedef s32 (*bf_Cfunction) (bf_State *bf);
 
 
 
@@ -792,9 +792,11 @@ static s32 bf_sfx(bf_State* bf)
 
 			if(top >= 2)
 			{
-				s32 id = getBfNumber(bf, 2);
-				note = id % NOTES;
-				octave = id / NOTES;
+				{
+					s32 id = getBfNumber(bf, 2);
+					note = id % NOTES;
+					octave = id / NOTES;
+				}
 
 				if(top >= 3)
 				{
@@ -855,9 +857,7 @@ static s32 bf_sync(bf_State* bf)
 	}
 
 	if(bank >= 0 && bank < TIC_BANKS)
-	{
 		memory->api.sync(memory, mask, bank, toCart);
-	}
 	else
 		bfL_error(bf, "sync() error, invalid bank");
 
@@ -1132,13 +1132,13 @@ static s32 bf_mouse(bf_State *bf)
 // API functions list
 
 static const char* const ApiKeywords[] = API_KEYWORDS;
-static const bf_function ApiFunc[] = 
+static const bf_Cfunction ApiFunc[] = 
 {
 	NULL, NULL, NULL, bf_print, bf_cls, bf_pix, bf_line, bf_rect, 
 	bf_rectb, bf_spr, bf_btn, bf_btnp, bf_sfx, bf_map, bf_mget, 
 	bf_mset, bf_peek, bf_poke, bf_peek4, bf_poke4, bf_memcpy, 
 	bf_memset, bf_trace, bf_pmem, bf_time, bf_exit, bf_font, bf_mouse, 
-	bf_circ, bf_circb, bf_tri, bf_textri, bf_clip, bf_music, bf_sync, bf_reset, 
+	bf_circ, bf_circb, bf_tri, bf_textri, bf_clip, bf_music, bf_sync, bf_reset
 };
 
 STATIC_ASSERT(api_func, COUNT_OF(ApiKeywords) == COUNT_OF(ApiFunc));

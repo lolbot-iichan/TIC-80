@@ -316,10 +316,10 @@ static s32 lua_textri(lua_State* lua)
 
 		memory->api.textri(memory, pt[0], pt[1],	//	xy 1
 									pt[2], pt[3],	//	xy 2
-									pt[4], pt[5],	//  xy 3
+									pt[4], pt[5],	//	xy 3
 									pt[6], pt[7],	//	uv 1
 									pt[8], pt[9],	//	uv 2
-									pt[10], pt[11], //  uv 3
+									pt[10], pt[11], //	uv 3
 									use_map,		// use map
 									chroma);		// chroma
 	}
