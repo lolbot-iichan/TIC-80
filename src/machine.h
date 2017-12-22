@@ -28,6 +28,11 @@
 
 #define SFX_DEF_SPEED (1 << SFX_SPEED_BITS)
 
+#define API_KEYWORDS {"TIC", "scanline", "OVR", "print", "cls", "pix", "line", "rect", "rectb", \
+	"spr", "btn", "btnp", "sfx", "map", "mget", "mset", "peek", "poke", "peek4", "poke4", \
+	"memcpy", "memset", "trace", "pmem", "time", "exit", "font", "mouse", "circ", "circb", "tri", "textri", \
+	"clip", "music", "sync", "reset"}
+	
 typedef struct
 {
 	s32 time;       /* clock time of next delta */
@@ -82,6 +87,7 @@ typedef struct
 		Channel channels[TIC_SOUND_CHANNELS];
 	} music;
 
+	tic_tick tick;
 	tic_scanline scanline;
 
 	struct
@@ -143,23 +149,7 @@ s32 drawText(tic_mem* memory, const char* text, s32 x, s32 y, s32 width, s32 hei
 s32 drawSpriteFont(tic_mem* memory, u8 symbol, s32 x, s32 y, s32 width, s32 height, u8 chromakey, s32 scale);
 s32 drawFixedSpriteFont(tic_mem* memory, u8 index, s32 x, s32 y, s32 width, s32 height, u8 chromakey, s32 scale);
 
-void closeLua(tic_machine* machine);
-void closeJavascript(tic_machine* machine);
-void closeBrainfuck(tic_machine* machine);
-
-bool initMoonscript(tic_machine* machine, const char* code);
-bool initLua(tic_machine* machine, const char* code);
-bool initJavascript(tic_machine* machine, const char* code);
-bool initBrainfuck(tic_machine* machine, const char* code);
-
-void callLuaTick(tic_machine* machine);
-void callJavascriptTick(tic_machine* machine);
-void callBrainfuckTick(tic_machine* machine);
-
-void callLuaScanline(tic_mem* memory, s32 row, void* data);
-void callJavascriptScanline(tic_mem* memory, s32 row, void* data);
-void callBrainfuckScanline(tic_mem* memory, s32 row, void* data);
-
-void callLuaOverlap(tic_mem* memory, void* data);
-void callJavascriptOverlap(tic_mem* memory, void* data);
-void callBrainfuckOverlap(tic_mem* memory, void* data);
+const tic_script_config* getLuaScriptConfig();
+const tic_script_config* getMoonScriptConfig();
+const tic_script_config* getJsScriptConfig();
+const tic_script_config* getBfScriptConfig();

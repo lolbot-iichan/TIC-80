@@ -194,76 +194,13 @@ static inline bool islineend(char c) {return c == '\n' || c == '\0';}
 static inline bool isalpha_(char c) {return isalpha(c) || c == '_';}
 static inline bool isalnum_(char c) {return isalnum(c) || c == '_';}
 
-typedef struct
-{
-	const char* blockCommentStart;
-	const char* blockCommentEnd;
-	const char* singleCommentStart;
-
-	const char* const * keywords;
-	s32 keywordsCount;
-} SyntaxConfig;
-
-static const char* const LuaKeywords [] =
-{
-	"and", "break", "do", "else", "elseif",
-	"end", "false", "for", "function", "goto", "if",
-	"in", "local", "nil", "not", "or", "repeat",
-	"return", "then", "true", "until", "while"
-};
-
-static const SyntaxConfig LuaSyntaxConfig = 
-{
-	.blockCommentStart 	= "--[[",
-	.blockCommentEnd 	= "]]",
-	.singleCommentStart = "--",
-	.keywords 			= LuaKeywords,
-	.keywordsCount 		= COUNT_OF(LuaKeywords),
-};
-
-static const char* const MoonKeywords [] =
-{
-	"false", "true", "nil", "return",
-	"break", "continue", "for", "while",
-	"if", "else", "elseif", "unless", "switch",
-	"when", "and", "or", "in", "do",
-	"not", "super", "try", "catch",
-	"with", "export", "import", "then",
-	"from", "class", "extends", "new"
-};
-
-static const SyntaxConfig MoonSyntaxConfig = 
-{
-	.blockCommentStart 	= "--[[",
-	.blockCommentEnd 	= "]]",
-	.singleCommentStart = "--",
-	.keywords 			= MoonKeywords,
-	.keywordsCount 		= COUNT_OF(MoonKeywords),
-};
-
-static const char* const JsKeywords [] =
-{
-	"break", "do", "instanceof", "typeof", "case", "else", "new",
-	"var", "catch", "finally", "return", "void", "continue", "for",
-	"switch", "while", "debugger", "function", "this", "with",
-	"default", "if", "throw", "delete", "in", "try", "const"
-};
-
-static const SyntaxConfig JsSyntaxConfig = 
-{
-	.blockCommentStart 	= "/*",
-	.blockCommentEnd 	= "*/",
-	.singleCommentStart = "//",
-	.keywords 			= JsKeywords,
-	.keywordsCount 		= COUNT_OF(JsKeywords),
-};
-
-static void parse(const char* start, u8* color, const SyntaxConfig* config)
+static void parse(const char* start, u8* color, const tic_script_config* config)
 {
 	const char* ptr = start;
 
 	const char* blockCommentStart = NULL;
 	const char* blockStringStart = NULL;
+	const char* blockStdStringStart = NULL;
 	const char* singleCommentStart = NULL;
 	const char* wordStart = NULL;
 	const char* numberStart = NULL;
@@ -283,18 +220,24 @@ static void parse(const char* start, u8* color, const SyntaxConfig* config)
 		}
 		else if(blockStringStart)
 		{
-			const char* blockStart = blockStringStart+1;
+			const char* end = strstr(ptr, config->blockStringEnd);
+
+			ptr = end ? end + strlen(config->blockStringEnd) : blockStringStart + strlen(blockStringStart);
+			memset(color + (blockStringStart - start), getConfig()->theme.code.string, ptr - blockStringStart);
+			blockStringStart = NULL;
+			continue;
+		}
+		else if(blockStdStringStart)
+		{
+			const char* blockStart = blockStdStringStart+1;
 
 			while(true)
 			{
-				const char* pos = strchr(blockStart, *blockStringStart);
+				const char* pos = strchr(blockStart, *blockStdStringStart);
 				
 				if(pos)
 				{
-					if(*(pos-1) == '\\' && *(pos-2) != '\\')
-					{
-						blockStart = pos + 1;
-					}
+					if(*(pos-1) == '\\' && *(pos-2) != '\\') blockStart = pos + 1;
 					else
 					{
 						ptr = pos + 1;
@@ -303,13 +246,13 @@ static void parse(const char* start, u8* color, const SyntaxConfig* config)
 				}
 				else
 				{
-					ptr = blockStringStart + strlen(blockStringStart);
+					ptr = blockStdStringStart + strlen(blockStdStringStart);
 					break;
 				}
 			}
 
-			memset(color + (blockStringStart - start), getConfig()->theme.code.string, ptr - blockStringStart);
-			blockStringStart = NULL;
+			memset(color + (blockStdStringStart - start), getConfig()->theme.code.string, ptr - blockStdStringStart);
+			blockStdStringStart = NULL;
 			continue;
 		}
 		else if(singleCommentStart)
@@ -324,12 +267,13 @@ static void parse(const char* start, u8* color, const SyntaxConfig* config)
 		{
 			while(!islineend(*ptr) && isalnum_(*ptr)) ptr++;
 
+			s32 len = ptr - wordStart;
 			bool keyword = false;
 			{
 				for(s32 i = 0; i < config->keywordsCount; i++)
-					if(memcmp(wordStart, config->keywords[i], strlen(config->keywords[i])) == 0)
+					if(len == strlen(config->keywords[i]) && memcmp(wordStart, config->keywords[i], len) == 0)
 					{
-						memset(color + (wordStart - start), getConfig()->theme.code.keyword, ptr - wordStart);
+						memset(color + (wordStart - start), getConfig()->theme.code.keyword, len);
 						keyword = true;
 						break;
 					}
@@ -337,12 +281,10 @@ static void parse(const char* start, u8* color, const SyntaxConfig* config)
 
 			if(!keyword)
 			{
-				static const char* const Api[] = API_KEYWORDS;
-
-				for(s32 i = 0; i < COUNT_OF(Api); i++)
-					if(memcmp(wordStart, Api[i], strlen(Api[i])) == 0)
+				for(s32 i = 0; i < config->apiCount; i++)
+					if(len == strlen(config->api[i]) && memcmp(wordStart, config->api[i], len) == 0)
 					{
-						memset(color + (wordStart - start), getConfig()->theme.code.api, ptr - wordStart);
+						memset(color + (wordStart - start), getConfig()->theme.code.api, len);
 						break;
 					}
 			}
@@ -378,53 +320,44 @@ static void parse(const char* start, u8* color, const SyntaxConfig* config)
 		}
 		else
 		{
-			s32 blockCommentStartSize = strlen(config->blockCommentStart);
-			if(c == config->blockCommentStart[0] && memcmp(ptr, config->blockCommentStart, blockCommentStartSize) == 0)
+			if(config->blockCommentStart && memcmp(ptr, config->blockCommentStart, strlen(config->blockCommentStart)) == 0)
 			{
 				blockCommentStart = ptr;
-				ptr += blockCommentStartSize;
+				ptr += strlen(config->blockCommentStart);
 				continue;
 			}
-			else
+			if(config->blockStringStart && memcmp(ptr, config->blockStringStart, strlen(config->blockStringStart)) == 0)
 			{
-				if(c == '"' || c == '\'')
-				{
-					blockStringStart = ptr;
-					ptr++;
-					continue;
-				}
-				else
-				{
-					s32 singleCommentStartSize = strlen(config->singleCommentStart);
-
-					if(c == config->singleCommentStart[0] && memcmp(ptr, config->singleCommentStart, singleCommentStartSize) == 0)
-					{
-						singleCommentStart = ptr;
-						ptr += singleCommentStartSize;
-						continue;
-					}
-					else
-					{
-						if(isalpha_(c))
-						{
-							wordStart = ptr;
-							ptr++;
-							continue;
-						}
-						else
-						{
-							if(isdigit(c) || (c == '.' && isdigit(ptr[1])))
-							{
-								numberStart = ptr;
-								ptr++;
-								continue;
-							}
-							else if(ispunct(c))
-								color[ptr - start] = getConfig()->theme.code.sign;
-						}
-					}
-				}
+				blockStringStart = ptr;
+				ptr += strlen(config->blockStringStart);
+				continue;
 			}
+			else if(c == '"' || c == '\'')
+			{
+				blockStdStringStart = ptr;
+				ptr++;
+				continue;
+			}
+			else if(config->singleComment && memcmp(ptr, config->singleComment, strlen(config->singleComment)) == 0)
+			{
+				singleCommentStart = ptr;
+				ptr += strlen(config->singleComment);
+				continue;
+			}
+			else if(isalpha_(c))
+			{
+				wordStart = ptr;
+				ptr++;
+				continue;
+			}
+			else if(isdigit(c) || (c == '.' && isdigit(ptr[1])))
+			{
+				numberStart = ptr;
+				ptr++;
+				continue;
+			}
+			else if(ispunct(c)) color[ptr - start] = getConfig()->theme.code.sign;
+			else if(iscntrl(c)) color[ptr - start] = getConfig()->theme.code.other;
 		}
 
 		if(!c) break;
@@ -433,15 +366,13 @@ static void parse(const char* start, u8* color, const SyntaxConfig* config)
 	}
 }
 
-static void highlightBrainfuck(const char* text, u8* color)
+static void highlightBrainfuck(const char* text, u8* color, const tic_script_config* config)
 {
 	bool comment = false;
 	int macro_def_state = 0;
 	const char* macro_name = NULL;
 	bool macro_call = false;
 	bool macro_name_end = false;
-
-	static const char* const ApiKeywords[] = API_KEYWORDS;
 
 	while(*text)
 	{
@@ -472,8 +403,8 @@ static void highlightBrainfuck(const char* text, u8* color)
 			if(macro_name && macro_name_end)
 			{
 				size_t namelen = text-macro_name;
-				for(int k=0;k<COUNT_OF(ApiKeywords);k++)
-					if(strncmp(ApiKeywords[k],macro_name,namelen) == 0 && namelen == strlen(ApiKeywords[k]))
+				for(int k=0;k<config->apiCount;k++)
+					if(strncmp(config->api[k],macro_name,namelen) == 0 && namelen == strlen(config->api[k]))
 						memset(color-namelen,getConfig()->theme.code.api,namelen);
 			}
 	
@@ -496,14 +427,12 @@ static void highlightBrainfuck(const char* text, u8* color)
 static void parseSyntaxColor(Code* code)
 {
 	memset(code->colorBuffer, getConfig()->theme.code.var, sizeof(code->colorBuffer));
+	tic_mem* tic = code->tic;
 
-	switch(code->tic->api.get_script(code->tic))
-	{
-	case tic_script_moon: 	parse(code->src, code->colorBuffer, &MoonSyntaxConfig); break;
-	case tic_script_lua: 	parse(code->src, code->colorBuffer, &LuaSyntaxConfig); break;
-	case tic_script_js: 	parse(code->src, code->colorBuffer, &JsSyntaxConfig); break;
-	case tic_script_bf:     highlightBrainfuck(code->src, code->colorBuffer); break;
-	}
+    if(tic->api.get_script_config(tic)->lang == tic_script_bf)
+        highlightBrainfuck(code->src, code->colorBuffer, tic->api.get_script_config(tic));
+    else
+    	parse(code->src, code->colorBuffer, tic->api.get_script_config(tic));
 }
 
 static char* getLineByPos(Code* code, char* pos)
@@ -1241,7 +1170,7 @@ static void setOutlineMode(Code* code)
 	code->outline.index = 0;
 	memset(code->outline.items, 0, OUTLINE_ITEMS_SIZE);
 
-	switch(code->tic->api.get_script(code->tic))
+	switch(code->tic->api.get_script_config(code->tic)->lang)
 	{
 	case tic_script_moon:
 		setMoonscriptOutlineMode(code);
@@ -1282,9 +1211,7 @@ static void setCodeMode(Code* code, s32 mode)
 
 static void commentLine(Code* code)
 {
-	const char* Comment = 	code->tic->api.get_script(code->tic) == tic_script_js ? "// " : 
-							code->tic->api.get_script(code->tic) == tic_script_bf ? "# " :
-							"-- ";
+	const char* Comment = code->tic->api.get_script_config(code->tic)->singleComment;
 	size_t Size = strlen(Comment);
 
 	char* line = getLine(code);

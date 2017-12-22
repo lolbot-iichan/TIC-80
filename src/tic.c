@@ -559,9 +559,11 @@ void tic_close(tic_mem* memory)
 
 	machine->state.initialized = false;
 
-	closeJavascript(machine);
-	closeLua(machine);
-	closeBrainfuck(machine);
+	getLuaScriptConfig()->close(memory);
+	getMoonScriptConfig()->close(memory);
+	getJsScriptConfig()->close(memory);
+	getBfScriptConfig()->close(memory);
+
 	blip_delete(machine->blip);
 
 	free(memory->samples.buffer);
@@ -1497,13 +1499,19 @@ static bool isBrainfuck(const char* code)
 	return compareMetatag(code, "script", "bf") || compareMetatag(code, "script", "brainfuck");
 }
 
-static tic_script_lang api_get_script(tic_mem* memory)
+static const tic_script_config* getScriptConfig(const char* code)
 {
-	if(isMoonscript(memory->cart.bank0.code.data)) return tic_script_moon;
-	if(isJavascript(memory->cart.bank0.code.data)) return tic_script_js;
-	if(isBrainfuck(memory->cart.bank0.code.data)) return tic_script_bf;
-	return tic_script_lua;
+	if(isMoonscript(code)) return getMoonScriptConfig();
+	if(isJavascript(code)) return getJsScriptConfig();
+	if(isBrainfuck(code))  return getBfScriptConfig();
+	return getLuaScriptConfig();
 }
+
+static const tic_script_config* api_get_script_config(tic_mem* memory)
+{
+	return getScriptConfig(memory->cart.bank0.code.data);
+}
+
 
 static void updateSaveid(tic_mem* memory)
 {
@@ -1520,9 +1528,9 @@ static void updateSaveid(tic_mem* memory)
 	}
 }
 
-static void api_tick(tic_mem* memory, tic_tick_data* data)
+static void api_tick(tic_mem* tic, tic_tick_data* data)
 {
-	tic_machine* machine = (tic_machine*)memory;
+	tic_machine* machine = (tic_machine*)tic;
 
 	machine->data = data;
 	
@@ -1537,7 +1545,7 @@ static void api_tick(tic_mem* memory, tic_tick_data* data)
 
 			for(s32 i = TIC_BANKS - 1; i >= 0; i--)
 			{
-				const char* bankCode = memory->cart.banks[i].code.data;
+				const char* bankCode = tic->cart.banks[i].code.data;
 
 				if(strlen(bankCode))
 					strcat(code, bankCode);
@@ -1547,43 +1555,20 @@ static void api_tick(tic_mem* memory, tic_tick_data* data)
 				data->preprocessor(data->data, code);
 
 			bool done = false;
+			const tic_script_config* config = NULL;
 
 			if(strlen(code))
 			{
-				cart2ram(memory);
-				memory->input = compareMetatag(code, "input", "mouse") ? tic_mouse_input : tic_gamepad_input;
+				cart2ram(tic);
+				tic->input = compareMetatag(code, "input", "mouse") ? tic_mouse_input : tic_gamepad_input;
 
-				if(memory->input == tic_mouse_input)
-					memory->ram.vram.vars.mask.data = 0;
+				if(tic->input == tic_mouse_input)
+					tic->ram.vram.vars.mask.data = 0;
 
-				memory->script = tic_script_lua;
-
-				if (isMoonscript(code))
-				{
-					if(initMoonscript(machine, code))
-					{
-						memory->script = tic_script_moon;
-						done = true;
-					}
-				}
-				else if(isJavascript(code))
-				{
-					if(initJavascript(machine, code))
-					{
-						memory->script = tic_script_js;
-						done = true;
-					}
-				}
-				else if(isBrainfuck(code))
-				{
-					if(initBrainfuck(machine, code))
-					{
-						memory->script = tic_script_bf;
-						done = true;
-					}
-				}
-				else if(initLua(machine, code))
-					done = true;
+				data->start = data->counter();
+				
+				config = getScriptConfig(code);
+				done = config->init(tic, code);
 			}
 			else
 			{
@@ -1594,17 +1579,17 @@ static void api_tick(tic_mem* memory, tic_tick_data* data)
 
 			if(done)
 			{
-				data->start = data->counter();
+				machine->state.tick = config->tick;
+				machine->state.scanline = config->scanline;
+				machine->state.ovr.callback = config->overlap;
 
-				machine->state.scanline = (memory->script == tic_script_js) ? callJavascriptScanline : (memory->script == tic_script_bf) ? callBrainfuckScanline : callLuaScanline;
-				machine->state.ovr.callback = (memory->script == tic_script_js) ? callJavascriptOverlap : (memory->script == tic_script_bf) ? callBrainfuckOverlap : callLuaOverlap;
 				machine->state.initialized = true;
 			}
 			else return;
 		}
 	}
 
-	(memory->script == tic_script_js) ? callJavascriptTick(machine) : (memory->script == tic_script_bf) ? callBrainfuckTick(machine) : callLuaTick(machine);
+	machine->state.tick(tic);
 }
 
 static void api_scanline(tic_mem* memory, s32 row, void* data)
@@ -1876,7 +1861,6 @@ static void initApi(tic_api* api)
 	INIT_API(reset);
 	INIT_API(pause);
 	INIT_API(resume);
-	INIT_API(get_script);
 	INIT_API(sync);
 	INIT_API(btnp);
 	INIT_API(load);
@@ -1884,6 +1868,8 @@ static void initApi(tic_api* api)
 	INIT_API(tick_start);
 	INIT_API(tick_end);
 	INIT_API(blit);
+
+	INIT_API(get_script_config);
 
 #undef INIT_API
 }

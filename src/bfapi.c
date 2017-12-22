@@ -1458,8 +1458,10 @@ s32 initBfLibrary(bf_State* bf)
 
 // public functions
 
-void closeBrainfuck(tic_machine* machine)
+static void closeBrainfuck(tic_mem* tic)
 {
+	tic_machine* machine = (tic_machine*)tic;
+
 	if(machine->bf)
 	{
 		for(s32 i=0;i<machine->bf->macro.count;i++)
@@ -1474,9 +1476,11 @@ void closeBrainfuck(tic_machine* machine)
 	}
 }
 
-bool initBrainfuck(tic_machine* machine, const char* code)
+static bool initBrainfuck(tic_mem* tic, const char* code)
 {
-	closeBrainfuck(machine);
+	tic_machine* machine = (tic_machine*)tic;
+
+	closeBrainfuck(tic);
 
 	machine->bf = calloc(1,sizeof(struct bf_State));
 	machine->bf->macro.items = calloc(BF_MAX_MACRO_NUM,sizeof(struct bf_macro));
@@ -1500,15 +1504,17 @@ bool initBrainfuck(tic_machine* machine, const char* code)
 	if(res)
 	{
 		machine->data->error(machine->data->data, BfCodeErr[res>BfCodeMax?BfCodeMax:res]);
-		closeBrainfuck(machine);
+		closeBrainfuck(tic);
 		return false;
 	}
 
 	return true;
 }
 
-void callBrainfuckTick(tic_machine* machine)
+static void callBrainfuckTick(tic_mem* tic)
 {
+	tic_machine* machine = (tic_machine*)tic;
+
 	if(machine->bf)
 	{
 		machine->bf->data.index = 0;
@@ -1519,7 +1525,7 @@ void callBrainfuckTick(tic_machine* machine)
 	}
 }
 
-void callBrainfuckScanline(tic_mem* memory, s32 row, void* data)
+static void callBrainfuckScanline(tic_mem* memory, s32 row, void* data)
 {
 	tic_machine* machine = (tic_machine*)memory;
 	if(machine->bf)
@@ -1534,7 +1540,7 @@ void callBrainfuckScanline(tic_mem* memory, s32 row, void* data)
 	}
 }
 
-void callBrainfuckOverlap(tic_mem* memory, void* data)
+static void callBrainfuckOverlap(tic_mem* memory, void* data)
 {
 	tic_machine* machine = (tic_machine*)memory;
 	if(machine->bf)
@@ -1547,4 +1553,36 @@ void callBrainfuckOverlap(tic_mem* memory, void* data)
 		if(res)
 			machine->data->error(machine->data->data, BfCodeErr[res>BfCodeMax?BfCodeMax:res]);
 	}
+}
+
+static const char* const BfKeywords [] =
+{
+};
+
+static const tic_script_config BfSyntaxConfig = 
+{
+	.lang 				= tic_script_bf,
+
+	.init 				= initBrainfuck,
+	.close 				= closeBrainfuck,
+	.tick 				= callBrainfuckTick,
+	.scanline 			= callBrainfuckScanline,
+	.overlap 			= callBrainfuckOverlap,
+
+	.blockCommentStart 	= NULL,
+	.blockCommentEnd 	= NULL,
+	.blockStringStart	= NULL,
+	.blockStringEnd		= NULL,
+	.singleComment 		= "# ",
+
+	.keywords 			= BfKeywords,
+	.keywordsCount 		= COUNT_OF(BfKeywords),
+	
+	.api 				= ApiKeywords,
+	.apiCount 			= COUNT_OF(ApiKeywords),
+};
+
+const tic_script_config* getBfScriptConfig()
+{
+	return &BfSyntaxConfig;
 }
