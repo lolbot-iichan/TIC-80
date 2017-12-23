@@ -27,6 +27,7 @@
 #include <SDL.h>
 
 #include "machine.h"
+#include "studio.h"
 
 #define BF_GLOBAL_MACRO_NAME "//GLOBAL\\"
 #define BF_MAX_MACRO_NUM 1024
@@ -1607,6 +1608,66 @@ static const tic_outline_item* getBrainfuckOutline(const char* code, s32* size)
 	return items;
 }
 
+static void parseBrainfuck(const tic_script_config* config, const char* start, u8* color, const tic_code_theme* theme)
+{
+	const char* text = start;
+
+	bool comment = false;
+	int macro_def_state = 0;
+	const char* macro_name = NULL;
+	bool macro_call = false;
+	bool macro_name_end = false;
+
+	while(*text)
+	{
+		if(*text == '#')
+			comment = true;
+		if(*text == '\n')
+			comment = false;
+		if(!comment)
+		{
+			macro_name_end = false;
+
+			if(*text == '/')
+			{
+				if(macro_def_state == 0)
+					macro_name = text + 1;
+				macro_name_end = macro_def_state == 1;
+				macro_def_state = (macro_def_state+1)%3;
+			}
+
+			if(*text == '\\' && macro_def_state != 1)
+			{
+				if(!macro_call)
+					macro_name = text + 1;
+				macro_name_end = macro_call;
+				macro_call = !macro_call;
+			}
+
+			if(macro_name && macro_name_end)
+			{
+				size_t namelen = text-macro_name;
+				for(int k=0;k<config->apiCount;k++)
+					if(strncmp(config->api[k],macro_name,namelen) == 0 && namelen == strlen(config->api[k]))
+						memset(color-namelen,theme->api,namelen);
+			}
+	
+			*color = macro_def_state==1 && *text=='\\' ? theme->other :
+				strchr("/\\",*text) ? theme->keyword :
+				macro_call ? theme->var :
+				macro_def_state==1 ? theme->var :
+				*text=='?' ? theme->keyword :
+				strchr("[]<>+-.,",*text) ? theme->sign :
+				theme->comment;
+		}
+		else
+			*color = theme->comment;
+
+		text++;
+		color++;
+	}
+}
+
 static const tic_script_config BfSyntaxConfig = 
 {
 	.init 				= initBrainfuck,
@@ -1616,6 +1677,7 @@ static const tic_script_config BfSyntaxConfig =
 	.overlap 			= callBrainfuckOverlap,
 
 	.getOutline			= getBrainfuckOutline,
+	.parse				= parseBrainfuck,
 
 	.blockCommentStart 	= NULL,
 	.blockCommentEnd 	= NULL,
