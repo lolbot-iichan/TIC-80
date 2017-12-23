@@ -1559,21 +1559,69 @@ static const char* const BfKeywords [] =
 {
 };
 
+static const tic_outline_item* getBrainfuckOutline(const char* code, s32* size)
+{
+	enum{Size = sizeof(tic_outline_item)};
+
+	*size = 0;
+
+	static tic_outline_item* items = NULL;
+
+	if(items)
+	{
+		free(items);
+		items = NULL;
+	}
+
+	bool comment = false;
+	int macro_def_state = 0;
+	const char* macro_def_name = NULL;
+
+	for(const char* text = code; *text; text++)
+	{
+		if(*text == '#')
+			comment = true;
+		if(*text == '\n')
+			comment = false;
+		if(comment)
+			continue;
+
+		if(!comment)
+		{
+			if(*text == '/')
+			{
+				if(macro_def_state==0)
+					macro_def_name = text+1;
+				if(macro_def_state==1)
+				{
+    				items = items ? realloc(items, (*size + 1) * Size) : malloc(Size);
+    				items[*size].pos = text - code;
+    				items[*size].size = text - macro_def_name;
+    				(*size)++;
+				}
+				macro_def_state = (macro_def_state+1)%3;
+			}
+		}
+	}
+
+	return items;
+}
+
 static const tic_script_config BfSyntaxConfig = 
 {
-	.lang 				= tic_script_bf,
-
 	.init 				= initBrainfuck,
 	.close 				= closeBrainfuck,
 	.tick 				= callBrainfuckTick,
 	.scanline 			= callBrainfuckScanline,
 	.overlap 			= callBrainfuckOverlap,
 
+	.getOutline			= getBrainfuckOutline,
+
 	.blockCommentStart 	= NULL,
 	.blockCommentEnd 	= NULL,
 	.blockStringStart	= NULL,
 	.blockStringEnd		= NULL,
-	.singleComment 		= "# ",
+	.singleComment 		= "#",
 
 	.keywords 			= BfKeywords,
 	.keywordsCount 		= COUNT_OF(BfKeywords),

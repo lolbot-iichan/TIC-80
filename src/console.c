@@ -40,6 +40,24 @@
 #define CONSOLE_BUFFER_SCREENS 64
 #define CONSOLE_BUFFER_SIZE (CONSOLE_BUFFER_WIDTH * CONSOLE_BUFFER_HEIGHT * CONSOLE_BUFFER_SCREENS)
 
+typedef enum
+{
+	LuaScript,	
+	MoonScript,
+	JavaScript,
+	Brainfuck,
+} ScriptLang;
+
+static const char TicCartSig[] = "TIC.CART";
+#define SIG_SIZE (sizeof TicCartSig-1)
+
+typedef struct
+{
+	u8 sig[SIG_SIZE];
+	s32 appSize;
+	s32 cartSize;
+} EmbedHeader;
+
 #if defined(__WINDOWS__) || defined(__LINUX__) || defined(__MACOSX__)
 #define CAN_EXPORT 1
 #endif
@@ -382,23 +400,23 @@ static bool onConsoleLoadSectionCommand(Console* console, const char* param)
 	return result;
 }
 
-static void* getDemoCart(Console* console, tic_script_lang script, s32* size)
+static void* getDemoCart(Console* console, ScriptLang script, s32* size)
 {
 	char path[FILENAME_MAX] = {0};
 
 	{
 		switch(script)
 		{
-		case tic_script_lua:
+		case LuaScript:
 			strcpy(path, DefaultLuaTicPath);
 			break;
-		case tic_script_moon:
+		case MoonScript:
 			strcpy(path, DefaultMoonTicPath);
 			break;
-		case tic_script_js:
+		case JavaScript:
 			strcpy(path, DefaultJSTicPath);
 			break;
-		case tic_script_bf:
+		case Brainfuck:
 			strcpy(path, DefaultBFTicPath);
 			break;
 		}
@@ -434,19 +452,19 @@ static void* getDemoCart(Console* console, tic_script_lang script, s32* size)
 
 	switch(script)
 	{
-	case tic_script_lua:
+	case LuaScript:
 		demo = LuaDemoRom;
 		romSize = sizeof LuaDemoRom;
 		break;
-	case tic_script_moon:
+	case MoonScript:
 		demo = MoonDemoRom;
 		romSize = sizeof MoonDemoRom;
 		break;
-	case tic_script_js:
+	case JavaScript:
 		demo = JsDemoRom;
 		romSize = sizeof JsDemoRom;
 		break;
-	case tic_script_bf:
+	case Brainfuck:
 		demo = BfDemoRom;
 		romSize = sizeof BfDemoRom;
 		break;
@@ -477,13 +495,13 @@ static void onConsoleLoadDemoCommandConfirmed(Console* console, const char* para
 	console->showGameMenu = false;
 
 	if(strcmp(param, DefaultLuaTicPath) == 0)
-		data = getDemoCart(console, tic_script_lua, &size);
+		data = getDemoCart(console, LuaScript, &size);
 	else if(strcmp(param, DefaultMoonTicPath) == 0)
-		data = getDemoCart(console, tic_script_moon, &size);
+		data = getDemoCart(console, MoonScript, &size);
 	else if(strcmp(param, DefaultJSTicPath) == 0)
-		data = getDemoCart(console, tic_script_js, &size);
+		data = getDemoCart(console, JavaScript, &size);
 	else if(strcmp(param, DefaultBFTicPath) == 0)
-		data = getDemoCart(console, tic_script_bf, &size);
+		data = getDemoCart(console, Brainfuck, &size);
 
 	const char* name = getCartName(param);
 
@@ -1030,7 +1048,7 @@ static void onConsoleLoadCommand(Console* console, const char* param)
 	}
 }
 
-static void loadDemo(Console* console, tic_script_lang script)
+static void loadDemo(Console* console, ScriptLang script)
 {
 	s32 size = 0;
 	u8* data = getDemoCart(console, script, &size);
@@ -1052,13 +1070,13 @@ static void onConsoleNewCommandConfirmed(Console* console, const char* param)
 	if(param && strlen(param))
 	{
 		if(strcmp(param, "lua") == 0)
-			loadDemo(console, tic_script_lua);
+			loadDemo(console, LuaScript);
 		else if(strcmp(param, "moon") == 0 || strcmp(param, "moonscript") == 0)
-			loadDemo(console, tic_script_moon);
+			loadDemo(console, MoonScript);
 		else if(strcmp(param, "js") == 0 || strcmp(param, "javascript") == 0)
-			loadDemo(console, tic_script_js);
+			loadDemo(console, JavaScript);
 		else if(strcmp(param, "bf") == 0 || strcmp(param, "brainfuck") == 0)
-			loadDemo(console, tic_script_bf);
+			loadDemo(console, Brainfuck);
 		else
 		{
 			printError(console, "\nunknown parameter: ");
@@ -1067,7 +1085,7 @@ static void onConsoleNewCommandConfirmed(Console* console, const char* param)
 			return;
 		}
 	}
-	else loadDemo(console, tic_script_lua);
+	else loadDemo(console, LuaScript);
 
 	printBack(console, "\nnew cart is created");
 	commandDone(console);
@@ -1176,7 +1194,7 @@ static void onConsoleDirCommand(Console* console, const char* param)
 	commandDone(console);
 }
 
-#ifdef CAN_EXPORT
+#if defined(CAN_EXPORT)
 
 static void onConsoleFolderCommand(Console* console, const char* param)
 {
@@ -1774,146 +1792,89 @@ static void onConsoleExportHtmlCommand(Console* console, const char* name)
 	SDL_free(EmbedTicJs);
 }
 
-// #ifdef CAN_EXPORT
+#if defined(CAN_EXPORT)
 
-// static void* embedCart(Console* console, s32* size)
-// {
-// 	tic_mem* tic = console->tic;
+static void* embedCart(Console* console, s32* size)
+{
+	tic_mem* tic = console->tic;
 
-// 	void* data = fsReadFile(console->appPath, size);
+	u8* data = NULL;
+	s32 appSize = 0;
+	void* app = fsReadFile(console->appPath, &appSize);
 
-// 	if(data)
-// 	{
-// 		void* start = memmem(data, *size, embed.prefix, sizeof(embed.prefix));
+	if(app)
+	{
+		void* cart = SDL_malloc(sizeof(tic_cartridge));
 
-// 		if(start)
-// 		{
-// 			embed.yes = true;
-// 			SDL_memcpy(&embed.file, &tic->cart, sizeof(tic_cartridge));
-// 			SDL_memcpy(start, &embed, sizeof(embed));
-// 			embed.yes = false;
-// 		}
+		if(cart)
+		{
+			s32 cartSize = tic->api.save(&tic->cart, cart);
 
-// 		return data;
-// 	}
+			{
+				unsigned long zipSize = sizeof(tic_cartridge);
+				u8* zip = (u8*)SDL_malloc(zipSize);
+
+				if(zip)
+				{
+					compress2(zip, &zipSize, cart, cartSize, Z_BEST_COMPRESSION);
+
+					{
+						EmbedHeader header = 
+						{
+							.appSize = appSize,
+							.cartSize = zipSize,
+						};
+
+						SDL_memcpy(header.sig, TicCartSig, SIG_SIZE);
+
+						s32 finalSize = appSize + sizeof header + header.cartSize;
+						data = SDL_malloc(finalSize);
+
+						if(data)
+						{
+							SDL_memcpy(data, app, appSize);
+							SDL_memcpy(data + appSize, &header, sizeof header);
+							SDL_memcpy(data + appSize + sizeof header, zip, header.cartSize);
+
+							*size = finalSize;
+						}
+					}
+
+					SDL_free(zip);
+				}
+			}
+
+			SDL_free(cart);
+		}
+
+		SDL_free(app);
+	}
 	
-// 	return NULL;
-// }
+	return data;
+}
 
-// #if defined(__WINDOWS__)
+static void onConsoleExportNativeCommand(Console* console, const char* cartName)
+{
+	s32 size = 0;
+	void* data = embedCart(console, &size);
 
-// static const char* getFileFolder(const char* path)
-// {
-// 	static char folder[FILENAME_MAX];
+	if(data)
+	{
+		fsGetFileData(onFileDownloaded, cartName, data, size, DEFAULT_CHMOD, console);
+	}
+	else
+	{
+		onFileDownloaded(FS_FILE_NOT_DOWNLOADED, console);
+	}
+}
 
-// 	const char* pos = strrchr(path, '\\');
-
-// 	if(!pos)
-// 		pos = strrchr(path, '/');
-
-// 	if(pos)
-// 	{
-// 		s32 size = pos - path;
-// 		memcpy(folder, path, size);
-// 		folder[size] = 0;
-
-// 		return folder;
-// 	}
-
-// 	return NULL;
-// }
-
-// static bool exportToFolder(Console* console, const char* folder, const char* file)
-// {
-// 	const char* workFolder = getFileFolder(console->appPath);
-
-// 	if(workFolder)
-// 	{
-// 		char src[FILENAME_MAX];
-// 		strcpy(src, workFolder);
-// 		strcat(src, file);
-
-// 		char dst[FILENAME_MAX];
-// 		strcpy(dst, folder);
-// 		strcat(dst, file);
-
-// 		return fsCopyFile(src, dst);
-// 	}
-
-// 	return NULL;
-// }
-
-// static void onConsoleExportNativeCommand(Console* console, const char* cartName)
-// {
-// 	const char* folder = folder_dialog(console);
-// 	bool done = false;
-
-// 	if(folder)
-// 	{
-// 		s32 size = 0;
-
-// 		void* data = embedCart(console, &size);
-
-// 		if(data)
-// 		{
-// 			char path[FILENAME_MAX];
-// 			strcpy(path, folder);
-// 			strcat(path, "\\game.exe");
-
-// 			done = fsWriteFile(path, data, size);
-
-// 			SDL_free(data);
-// 		}
-// 		else
-// 		{
-// 			printBack(console, "\ngame exporting error :(");
-// 		}
-// 	}
-
-// 	if(done && exportToFolder(console, folder, "\\tic80.dll") &&
-// 		exportToFolder(console, folder, "\\SDL2.dll"))
-// 		printBack(console, "\ngame exported :)");
-// 	else printBack(console, "\ngame not exported :|");
-
-// 	commandDone(console);
-// }
-
-// #else
-
-// static void onConsoleExportNativeCommand(Console* console, const char* cartName)
-// {
-// 	s32 size = 0;
-// 	void* data = embedCart(console, &size);
-
-// 	if(data)
-// 	{
-// 		fsGetFileData(onFileDownloaded, cartName, data, size, DEFAULT_CHMOD, console);
-// 	}
-// 	else
-// 	{
-// 		onFileDownloaded(FS_FILE_NOT_DOWNLOADED, console);
-// 	}
-// }
-
-// #endif
-
-
-// #endif
+#endif
 
 static const char* getExportName(Console* console, bool html)
 {
 	static char name[FILENAME_MAX];
 
-	if(strlen(console->romName))
-	{
-		memset(name, 0, sizeof name);
-		memcpy(name, console->romName, strstr(console->romName, ".tic") - console->romName);
-	}
-	else
-	{
-		strcpy(name, "game");
-	}
-
+	strcpy(name, strlen(console->romName) ? console->romName : "game");
 
 	if(html)
 		strcat(name, ".html");
@@ -1936,13 +1897,13 @@ static void onConsoleExportCommand(Console* console, const char* param)
 		{
 			if(strcmp(param, "native") == 0)
 			{
-// #ifdef CAN_EXPORT
-// 				onConsoleExportNativeCommand(console, getExportName(console, false));
-// #else
+#if defined(CAN_EXPORT)
+				onConsoleExportNativeCommand(console, getExportName(console, false));
+#else
 
 				printBack(console, "\nnative export isn't supported on this platform\n");
 				commandDone(console);
-// #endif
+#endif
 			}
 			else if(strcmp(param, "sprites") == 0)
 			{
@@ -2289,7 +2250,7 @@ static const struct
 	{"dir",		"ls", "show list of files", 		onConsoleDirCommand},
 	{"cd",		NULL, "change directory", 			onConsoleChangeDirectory},
 	{"mkdir",	NULL, "make directory", 			onConsoleMakeDirectory},
-#ifdef CAN_EXPORT
+#if defined(CAN_EXPORT)
 	{"folder",	NULL, "open working folder in OS", 	onConsoleFolderCommand},
 #endif
 	{"add",		NULL, "add file", 					onConsoleAddCommand},
@@ -2685,7 +2646,7 @@ static void tick(Console* console)
 	{
 		if(!console->embed.yes)
 		{
-			loadDemo(console, tic_script_lua);
+			loadDemo(console, LuaScript);
 
 			printBack(console, "\n hello! type ");
 			printFront(console, "help");
@@ -2954,7 +2915,6 @@ void initConsole(Console* console, tic_mem* tic, FileSystem* fs, Config* config,
 		.embed =
 		{
 			.yes = false,
-			.menu = false,
 			.file = console->embed.file,
 		},
 		.inputPosition = 0,
@@ -3089,6 +3049,53 @@ void initConsole(Console* console, tic_mem* tic, FileSystem* fs, Config* config,
 			SDL_free(data);
 
 			EM_ASM_({Module._free($0);}, cartPtr);
+		}
+	}
+#endif
+
+#if defined(CAN_EXPORT)
+
+	if(!console->embed.yes)
+	{
+		s32 appSize = 0;
+		u8* app = fsReadFile(console->appPath, &appSize);
+
+		if(app)
+		{
+			s32 size = appSize;
+			const u8* ptr = app;
+
+			while(true)
+			{
+				const EmbedHeader* header = (const EmbedHeader*)memmem(ptr, size, TicCartSig, SIG_SIZE);
+
+				if(header)
+				{
+					if(appSize == header->appSize + sizeof(EmbedHeader) + header->cartSize)
+					{
+						u8* data = NULL;
+						s32 dataSize = unzip(&data, app + header->appSize + sizeof(EmbedHeader), header->cartSize);
+
+						if(data)
+						{
+							loadCart(tic, console->embed.file, data, dataSize, true);
+							console->embed.yes = true;
+							
+							SDL_free(data);
+						}
+
+						break;
+					}
+					else
+					{
+						ptr = (const u8*)header + SIG_SIZE;
+						size = appSize - (ptr - app);
+					}
+				}
+				else break;
+			}
+
+			SDL_free(app);
 		}
 	}
 
