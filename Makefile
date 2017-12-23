@@ -158,6 +158,7 @@ DEMOS_FOR_EXPORT= \
 	bin/html/bf_demo.html \
 	bin/html/bf_exit.html \
 	bin/html/bf_font.html \
+	bin/html/bf_fps.html \
 	bin/html/bf_mouse2.html \
 	bin/html/bf_mset.html \
 	bin/html/bf_pmem.html \
