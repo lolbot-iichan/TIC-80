@@ -1369,7 +1369,8 @@ s32 runBfCodeExec(bf_State* bf)
 		}
 	}
 	
-	for(int k=0;k<ApiFunc[api](bf);k++)
+	int size = ApiFunc[api](bf);
+	for(int k=0;k<size;k++)
 		bf->data.items[(bf->data.index+k) % BF_MAX_MEMORY]=bf->result.items[k];
 	
 	bf->call.count=0;
