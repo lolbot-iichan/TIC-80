@@ -76,10 +76,10 @@ EMS_OPT= \
 	-s TOTAL_MEMORY=67108864 \
 	--llvm-lto 1 \
 	--memory-init-file 0 \
-	--pre-js lib/emscripten/prejs.js
+	--pre-js lib/emscripten/prejs.js \
+	-s 'EXTRA_EXPORTED_RUNTIME_METHODS=["writeArrayToMemory"]'
 
 EMS_LINKER_FLAGS= \
-	-s ASSERTIONS=1 \
 	-Llib/emscripten \
 	-llua \
 	-lgif \
