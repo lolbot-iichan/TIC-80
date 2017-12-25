@@ -79,6 +79,7 @@ EMS_OPT= \
 	--pre-js lib/emscripten/prejs.js
 
 EMS_LINKER_FLAGS= \
+	-s ASSERTIONS=1 \
 	-Llib/emscripten \
 	-llua \
 	-lgif \
