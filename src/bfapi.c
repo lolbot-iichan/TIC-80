@@ -1151,9 +1151,12 @@ STATIC_ASSERT(api_func, COUNT_OF(ApiKeywords) == COUNT_OF(ApiFunc));
 // * bf_demo:			bf_print, bf_cls, bf_spr, bf_btn
 // * bf_exit:			bf_print, bf_cls, bf_btn, bf_exit
 // * bf_font:			bf_cls, bf_font
+// * bf_fps:			bf_print, bf_cls, bf_spr, bf_btn, bf_time
+// * bf_minmax:			bf_cls, bf_mouse, bf_circ
 // * bf_mouse2:			bf_cls, bf_mouse, bf_line, bf_circ, bf_print
 // * bf_mset:			bf_cls, bf_map, bf_mset, bf_sync
 // * bf_pmem:			bf_print, bf_cls, bf_pmem
+// * bf_reset:			bf_print, bf_cls, bf_btn, bf_reset
 // * bf_scanline:		scanline, bf_cls, bf_poke, bf_poke4
 // * bf_sfx:			bf_print, bf_cls, bf_spr, bf_btnp, bf_sfx
 // * bf_time:			bf_print, bf_cls, bf_time

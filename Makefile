@@ -164,6 +164,7 @@ DEMOS_FOR_EXPORT= \
 	bin/html/bf_mouse2.html \
 	bin/html/bf_mset.html \
 	bin/html/bf_pmem.html \
+	bin/html/bf_reset.html \
 	bin/html/bf_scanline.html \
 	bin/html/bf_sfx.html \
 	bin/html/bf_time.html
