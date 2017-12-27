@@ -38,7 +38,6 @@
 #define MAX_PERIOD_VALUE 4096
 #define BASE_NOTE_FREQ 440.0
 #define BASE_NOTE_POS 49.0
-#define ENVELOPE_FREQ_SCALE 2
 #define NOTES_PER_MUNUTE (TIC_FRAMERATE / NOTES_PER_BEET * 60)
 #define min(a,b) ((a) < (b) ? (a) : (b))
 #define max(a,b) ((a) > (b) ? (a) : (b))
@@ -80,7 +79,7 @@ STATIC_ASSERT(tic_track, sizeof(tic_track) == 3*MUSIC_FRAMES+3);
 STATIC_ASSERT(tic_vram, sizeof(tic_vram) == TIC_VRAM_SIZE);
 STATIC_ASSERT(tic_ram, sizeof(tic_ram) == TIC_RAM_SIZE);
 STATIC_ASSERT(tic_sound_register, sizeof(tic_sound_register) == 16+2);
-STATIC_ASSERT(tic80_input, sizeof(tic80_input) == 2);
+STATIC_ASSERT(tic80_input, sizeof(tic80_input) == 12);
 
 static void update_amp(blip_buffer_t* blip, tic_sound_register_data* data, s32 new_amp )
 {
@@ -103,7 +102,7 @@ static inline s32 freq2period(double freq)
 {
     if(freq == 0.0) return MAX_PERIOD_VALUE;
 
-	enum {Rate = CLOCKRATE * ENVELOPE_FREQ_SCALE / ENVELOPE_VALUES};
+	enum {Rate = CLOCKRATE / ENVELOPE_VALUES};
 	s32 period = round((double)Rate / freq - 1.0);
 
     if(period < MIN_PERIOD_VALUE) return MIN_PERIOD_VALUE;
@@ -121,7 +120,7 @@ static inline s32 getAmp(const tic_sound_register* reg, s32 amp)
 
 static void runEnvelope(blip_buffer_t* blip, tic_sound_register* reg, tic_sound_register_data* data, s32 end_time )
 {
-	s32 period = freq2period(reg->freq * ENVELOPE_FREQ_SCALE);
+	s32 period = freq2period(reg->freq);
 
 	for ( ; data->time < end_time; data->time += period )
 	{
@@ -511,7 +510,6 @@ static void api_reset(tic_mem* memory)
 	resetPalette(memory);
 
 	memset(&memory->ram.vram.vars, 0, sizeof memory->ram.vram.vars);
-	memory->ram.vram.vars.mask.data = TIC_GAMEPAD_MASK;
 	
 	api_clip(memory, 0, 0, TIC80_WIDTH, TIC80_HEIGHT);
 
@@ -1268,13 +1266,13 @@ static void api_tick_start(tic_mem* memory, const tic_sfx* sfxsrc, const tic_mus
 	}
 
 	// process gamepad
-	for(s32 i = 0; i < COUNT_OF(machine->state.gamepad.holds); i++)
+	for(s32 i = 0; i < COUNT_OF(machine->state.gamepads.holds); i++)
 	{
 		u32 mask = 1 << i;
-		u32 prevDown = machine->state.gamepad.previous.data & mask;
-		u32 down = memory->ram.vram.input.gamepad.data & mask;
+		u32 prevDown = machine->state.gamepads.previous.data & mask;
+		u32 down = memory->ram.input.gamepads.data & mask;
 
-		u32* hold = &machine->state.gamepad.holds[i];
+		u32* hold = &machine->state.gamepads.holds[i];
 		if(prevDown && prevDown == down) (*hold)++;
 		else *hold = 0;
 	}
@@ -1289,7 +1287,7 @@ static void api_tick_end(tic_mem* memory)
 {
 	tic_machine* machine = (tic_machine*)memory;
 
-	machine->state.gamepad.previous.data = machine->memory.ram.vram.input.gamepad.data;
+	machine->state.gamepads.previous.data = machine->memory.ram.input.gamepads.data;
 
 	enum {EndTime = CLOCKRATE / TIC_FRAMERATE};
 	for (s32 i = 0; i < TIC_SOUND_CHANNELS; ++i )
@@ -1518,7 +1516,7 @@ static void updateSaveid(tic_mem* memory)
 	const char* saveid = readMetatag(memory->cart.bank0.code.data, "saveid", api_get_script_config(memory)->singleComment);
 	if(saveid)
 	{
-		strcpy(memory->saveid, saveid);
+		strncpy(memory->saveid, saveid, TIC_SAVEID_SIZE-1);
 		free((void*)saveid);
 	}
 }
@@ -1556,10 +1554,16 @@ static void api_tick(tic_mem* tic, tic_tick_data* data)
 			{
 				config = getScriptConfig(code);
 				cart2ram(tic);
-				tic->input = compareMetatag(code, "input", "mouse", config->singleComment) ? tic_mouse_input : tic_gamepad_input;
 
-				if(tic->input == tic_mouse_input)
-					tic->ram.vram.vars.mask.data = 0;
+				tic->input.data = 0;
+
+				if(compareMetatag(code, "input", "mouse", config->singleComment))
+					tic->input.mouse = 1;
+				else if(compareMetatag(code, "input", "gamepad", config->singleComment))
+					tic->input.gamepad = 1;
+				else if(compareMetatag(code, "input", "keyboard", config->singleComment))
+					tic->input.keyboard = 1;
+				else tic->input.data = -1;
 
 				data->start = data->counter();
 				
@@ -1615,20 +1619,20 @@ static u32 api_btnp(tic_mem* tic, s32 index, s32 hold, s32 period)
 
 	if(index < 0)
 	{
-		return (~machine->state.gamepad.previous.data) & machine->memory.ram.vram.input.gamepad.data;
+		return (~machine->state.gamepads.previous.data) & machine->memory.ram.input.gamepads.data;
 	}
 	else if(hold < 0 || period < 0)
 	{
-		return ((~machine->state.gamepad.previous.data) & machine->memory.ram.vram.input.gamepad.data) & (1 << index);
+		return ((~machine->state.gamepads.previous.data) & machine->memory.ram.input.gamepads.data) & (1 << index);
 	}
 
-	tic80_input previous;
+	tic80_gamepads previous;
 	
-	previous.data = machine->state.gamepad.holds[index] >= hold 
-		? period && machine->state.gamepad.holds[index] % period ? machine->state.gamepad.previous.data : 0
-		: machine->state.gamepad.previous.data;
+	previous.data = machine->state.gamepads.holds[index] >= hold 
+		? period && machine->state.gamepads.holds[index] % period ? machine->state.gamepads.previous.data : 0
+		: machine->state.gamepads.previous.data;
 
-	return ((~previous.data) & machine->memory.ram.vram.input.gamepad.data) & (1 << index);
+	return ((~previous.data) & machine->memory.ram.input.gamepads.data) & (1 << index);
 }
 
 static void api_load(tic_cartridge* cart, const u8* buffer, s32 size, bool palette)
