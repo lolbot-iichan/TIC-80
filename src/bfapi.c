@@ -33,7 +33,7 @@
 #define BF_MAX_MACRO_NUM 1024
 #define BF_MAX_API_PARAMS 258
 #define BF_MAX_API_STRING 256
-#define BF_MAX_API_RETURN 3
+#define BF_MAX_API_RETURN 5
 #define BF_MAX_MEMORY 65536
 #define BF_MAX_CALL_RECURSION 16
 
@@ -515,7 +515,7 @@ static s32 bf_btnp(bf_State* bf)
 	tic_machine* machine = getBfMachine(bf);
 	tic_mem* memory = (tic_mem*)machine;
 
-	if(machine->memory.input == tic_gamepad_input)
+	if(machine->memory.input.gamepad)
 	{
 		s32 top = bf_gettop(bf);
 
@@ -550,18 +550,18 @@ static s32 bf_btn(bf_State* bf)
 {
 	tic_machine* machine = getBfMachine(bf);
 
-	if(machine->memory.input == tic_gamepad_input)
+	if(machine->memory.input.gamepad)
 	{
 		s32 top = bf_gettop(bf);
 
 		if (top == 0)
 		{
-			bf_pushinteger(bf, machine->memory.ram.vram.input.gamepad.data);
+			bf_pushinteger(bf, machine->memory.ram.input.gamepads.data);
 		}
 		else if (top == 1)
 		{
 			s32 index = getBfNumber(bf, 1) & 0xf;
-			bf_pushboolean(bf, machine->memory.ram.vram.input.gamepad.data & (1 << index));
+			bf_pushboolean(bf, machine->memory.ram.input.gamepads.data & (1 << index));
 		}
 		else bfL_error(bf, "invalid params, btn [ id ]\n");
 
@@ -1063,28 +1063,26 @@ static s32 bf_pmem(bf_State *bf)
 	tic_machine* machine = getBfMachine(bf);
 	tic_mem* memory = &machine->memory;
 
-	if(top == 1 || top == 3)
+	if(top >= 1)
 	{
 		u32 index = getBfNumber(bf, 1);
 
-		if(index < TIC_PERSISTENT_SIZE)
+		if(index < 2*TIC_PERSISTENT_SIZE)
 		{
-			s32 val = memory->ram.persistent.data[index];
+			s16 val = ((s16*)memory->persistent.data)[index];
 
-			if(top == 3)
+			if(top == 2)
 			{
-				s32 nval = 65536*getBfNumber(bf, 2) + getBfNumber(bf, 3);
-				memory->ram.persistent.data[index] = nval;
+				s16 nval = getBfNumber(bf, 2);
+				((s16*)memory->persistent.data)[index] = nval;
 			}
 
-			bf_pushinteger(bf, val / 65536 );
-			bf_pushinteger(bf, val % 65536 );
-
-			return 2;			
+			bf_pushinteger(bf, val );
+			return 1;			
 		}
 		bfL_error(bf, "invalid persistent memory index\n");
 	}
-	else bfL_error(bf, "invalid params, pmem(index [high low]) -> high low\n");
+	else bfL_error(bf, "invalid params, pmem(index [val]) -> val\n");
 
 	return 0;
 }
@@ -1113,15 +1111,17 @@ static s32 bf_mouse(bf_State *bf)
 {
 	tic_machine* machine = getBfMachine(bf);
 
-	if(machine->memory.input == tic_mouse_input)
+	if(machine->memory.input.mouse)
 	{
-		u16 data = machine->memory.ram.vram.input.gamepad.data;
+		const tic80_mouse* mouse = &machine->memory.ram.input.mouse;
 
-		bf_pushinteger(bf, (data & 0x7fff) % TIC80_WIDTH);
-		bf_pushinteger(bf, (data & 0x7fff) / TIC80_WIDTH);
-		bf_pushboolean(bf, data >> 15);
+		bf_pushinteger(bf, mouse->x);
+		bf_pushinteger(bf, mouse->y);
+		bf_pushboolean(bf, mouse->left);
+		bf_pushboolean(bf, mouse->middle);
+		bf_pushboolean(bf, mouse->right);
 
-		return 3;		
+		return 5;		
 	}
 	else bfL_error(bf, "mouse input not declared in metadata\n");
 
