@@ -515,61 +515,57 @@ static s32 bf_btnp(bf_State* bf)
 	tic_machine* machine = getBfMachine(bf);
 	tic_mem* memory = (tic_mem*)machine;
 
-	if(machine->memory.input.gamepad)
+	s32 top = bf_gettop(bf);
+
+	if (top == 0)
 	{
-		s32 top = bf_gettop(bf);
-
-		if (top == 0)
-		{
-			bf_pushinteger(bf, memory->api.btnp(memory, -1, -1, -1));
-		}
-		else if(top == 1)
-		{
-			s32 index = getBfNumber(bf, 1) & 0xf;
-
-			bf_pushboolean(bf, memory->api.btnp(memory, index, -1, -1));
-		}
-		else if (top == 3)
-		{
-			s32 index = getBfNumber(bf, 1) & 0xf;
-			u32 hold = getBfNumber(bf, 2);
-			u32 period = getBfNumber(bf, 3);
-
-			bf_pushboolean(bf, memory->api.btnp(memory, index, hold, period));
-		}
-		else bfL_error(bf, "invalid params, btnp [ id [ hold period ] ]\n");
-
-		return 1;
+		bf_pushinteger(bf, memory->api.btnp(memory, -1, -1, -1));
 	}
-	else bfL_error(bf, "gamepad input not declared in metadata\n");
+	else if(top == 1)
+	{
+		s32 index = getBfNumber(bf, 1) & 0x1f;
 
-	return 0;
+		bf_pushboolean(bf, memory->api.btnp(memory, index, -1, -1));
+	}
+	else if (top == 3)
+	{
+		s32 index = getBfNumber(bf, 1) & 0x1f;
+		u32 hold = getBfNumber(bf, 2);
+		u32 period = getBfNumber(bf, 3);
+
+		bf_pushboolean(bf, memory->api.btnp(memory, index, hold, period));
+	}
+	else
+	{
+		bfL_error(bf, "invalid params, btnp [ id [ hold period ] ]\n");
+		return 0;
+	}
+
+	return 1;
 }
 
 static s32 bf_btn(bf_State* bf)
 {
 	tic_machine* machine = getBfMachine(bf);
 
-	if(machine->memory.input.gamepad)
+	s32 top = bf_gettop(bf);
+
+	if (top == 0)
 	{
-		s32 top = bf_gettop(bf);
-
-		if (top == 0)
-		{
-			bf_pushinteger(bf, machine->memory.ram.input.gamepads.data);
-		}
-		else if (top == 1)
-		{
-			s32 index = getBfNumber(bf, 1) & 0xf;
-			bf_pushboolean(bf, machine->memory.ram.input.gamepads.data & (1 << index));
-		}
-		else bfL_error(bf, "invalid params, btn [ id ]\n");
-
-		return 1;		
+		bf_pushinteger(bf, machine->memory.ram.input.gamepads.data);
 	}
-	else bfL_error(bf, "gamepad input not declared in metadata\n");
+	else if (top == 1)
+	{
+		u32 index = getBfNumber(bf, 1) & 0x1f;
+		bf_pushboolean(bf, machine->memory.ram.input.gamepads.data & (1 << index));
+	}
+	else
+	{
+		bfL_error(bf, "invalid params, btn [ id ]\n");
+		return 0;
+	} 
 
-	return 0;
+	return 1;
 }
 
 static s32 bf_spr(bf_State* bf)
@@ -874,6 +870,81 @@ static s32 bf_reset(bf_State* bf)
 	return 0;
 }
 
+static s32 bf_key(bf_State* bf)
+{
+	tic_machine* machine = getBfMachine(bf);
+	tic_mem* tic = &machine->memory;
+
+	s32 top = bf_gettop(bf);
+
+	if (top == 0)
+	{
+		bf_pushboolean(bf, tic->api.key(tic, tic_key_unknown));
+	}
+	else if (top == 1)
+	{
+		tic_key key = getBfNumber(bf, 1) + TIC_KEY_START_INDEX;
+
+		if(key < TIC_KEYS_COUNT)
+			bf_pushboolean(bf, tic->api.key(tic, key));
+		else
+		{
+			bfL_error(bf, "unknown keyboard code\n");
+			return 0;
+		}
+	}
+	else
+	{
+		bfL_error(bf, "invalid params, key [code]\n");
+		return 0;
+	} 
+
+	return 1;
+}
+
+static s32 bf_keyp(bf_State* bf)
+{
+	tic_machine* machine = getBfMachine(bf);
+	tic_mem* tic = &machine->memory;
+
+	s32 top = bf_gettop(bf);
+
+	if (top == 0)
+	{
+		bf_pushboolean(bf, tic->api.keyp(tic, tic_key_unknown, -1, -1));
+	}
+	else
+	{
+		tic_key key = getBfNumber(bf, 1) + TIC_KEY_START_INDEX;
+
+		if(key >= TIC_KEYS_COUNT)
+		{
+			bfL_error(bf, "unknown keyboard code\n");
+		}
+		else
+		{
+			if(top == 1)
+			{
+				bf_pushboolean(bf, tic->api.keyp(tic, key, -1, -1));
+			}
+			else if(top == 3)
+			{
+				u32 hold = getBfNumber(bf, 2);
+				u32 period = getBfNumber(bf, 3);
+
+				bf_pushboolean(bf, tic->api.keyp(tic, key, hold, period));
+			}
+			else
+			{
+				bfL_error(bf, "invalid params, keyp [ code [ hold period ] ]\n");
+				return 0;
+			}
+		}
+	}
+
+	return 1;
+}
+
 static s32 bf_memcpy(bf_State* bf)
 {
 	s32 top = bf_gettop(bf);
@@ -1111,21 +1182,15 @@ static s32 bf_mouse(bf_State *bf)
 {
 	tic_machine* machine = getBfMachine(bf);
 
-	if(machine->memory.input.mouse)
-	{
-		const tic80_mouse* mouse = &machine->memory.ram.input.mouse;
+	const tic80_mouse* mouse = &machine->memory.ram.input.mouse;
 
-		bf_pushinteger(bf, mouse->x);
-		bf_pushinteger(bf, mouse->y);
-		bf_pushboolean(bf, mouse->left);
-		bf_pushboolean(bf, mouse->middle);
-		bf_pushboolean(bf, mouse->right);
+	bf_pushinteger(bf, mouse->x);
+	bf_pushinteger(bf, mouse->y);
+	bf_pushboolean(bf, mouse->left);
+	bf_pushboolean(bf, mouse->middle);
+	bf_pushboolean(bf, mouse->right);
 
-		return 5;		
-	}
-	else bfL_error(bf, "mouse input not declared in metadata\n");
-
-	return 0;
+	return 5;
 }
 
 
@@ -1139,7 +1204,8 @@ static const bf_Cfunction ApiFunc[] =
 	bf_rectb, bf_spr, bf_btn, bf_btnp, bf_sfx, bf_map, bf_mget, 
 	bf_mset, bf_peek, bf_poke, bf_peek4, bf_poke4, bf_memcpy, 
 	bf_memset, bf_trace, bf_pmem, bf_time, bf_exit, bf_font, bf_mouse, 
-	bf_circ, bf_circb, bf_tri, bf_textri, bf_clip, bf_music, bf_sync, bf_reset
+	bf_circ, bf_circb, bf_tri, bf_textri, bf_clip, bf_music, bf_sync, bf_reset,
+	bf_key, bf_keyp
 };
 
 STATIC_ASSERT(api_func, COUNT_OF(ApiKeywords) == COUNT_OF(ApiFunc));
@@ -1160,7 +1226,7 @@ STATIC_ASSERT(api_func, COUNT_OF(ApiKeywords) == COUNT_OF(ApiFunc));
 // * bf_scanline:		scanline, bf_cls, bf_poke, bf_poke4
 // * bf_sfx:			bf_print, bf_cls, bf_spr, bf_btnp, bf_sfx
 // * bf_time:			bf_print, bf_cls, bf_time
-// TODO: bf_rectb, bf_mget, bf_peek, bf_peek4, bf_memcpy, bf_memset, bf_trace, bf_circb, bf_tri, bf_textri, bf_clip, bf_music 
+// TODO: bf_rectb, bf_mget, bf_peek, bf_peek4, bf_memcpy, bf_memset, bf_trace, bf_circb, bf_tri, bf_textri, bf_clip, bf_music, bf_key, bf_keyp
 
 
 
