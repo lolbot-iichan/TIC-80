@@ -100,13 +100,13 @@ static inline s32 note2freq(double note)
 
 static inline s32 freq2period(double freq)
 {
-    if(freq == 0.0) return MAX_PERIOD_VALUE;
+	if(freq == 0.0) return MAX_PERIOD_VALUE;
 
 	enum {Rate = CLOCKRATE / ENVELOPE_VALUES};
 	s32 period = round((double)Rate / freq - 1.0);
 
-    if(period < MIN_PERIOD_VALUE) return MIN_PERIOD_VALUE;
-    if(period > MAX_PERIOD_VALUE) return MAX_PERIOD_VALUE;
+	if(period < MIN_PERIOD_VALUE) return MIN_PERIOD_VALUE;
+	if(period > MAX_PERIOD_VALUE) return MAX_PERIOD_VALUE;
 
 	return period;
 }
@@ -1245,6 +1245,15 @@ static bool isNoiseWaveform(const tic_waveform* wave)
 	return memcmp(&NoiseWave.data, &wave->data, sizeof(tic_waveform)) == 0;
 }
 
+static bool isKeyPressed(const tic80_keyboard* input, tic_key key)
+{
+	for(s32 i = 0; i < TIC_KEY_BUFFER; i++)
+		if(input->keys[i] == key)
+			return true;
+
+	return false;
+}
+
 static void api_tick_start(tic_mem* memory, const tic_sfx* sfxsrc, const tic_music* music)
 {
 	tic_machine* machine = (tic_machine*)memory;
@@ -1277,6 +1286,18 @@ static void api_tick_start(tic_mem* memory, const tic_sfx* sfxsrc, const tic_mus
 		else *hold = 0;
 	}
 
+	// process keyboard
+	for(s32 i = TIC_KEY_START_INDEX; i < TIC_KEYS_COUNT; i++)
+	{
+		bool prevDown = isKeyPressed(&machine->state.keyboard.previous, i);
+		bool down = isKeyPressed(&memory->ram.input.keyboard, i);
+
+		u32* hold = &machine->state.keyboard.holds[i];
+
+		if(prevDown && down) (*hold)++;
+		else *hold = 0;
+	}
+
 	machine->state.setpix = setPixelDma;
 	machine->state.getpix = getPixelDma;
 	machine->state.synced = 0;
@@ -1288,6 +1309,7 @@ static void api_tick_end(tic_mem* memory)
 	tic_machine* machine = (tic_machine*)memory;
 
 	machine->state.gamepads.previous.data = machine->memory.ram.input.gamepads.data;
+	machine->state.keyboard.previous.data = machine->memory.ram.input.keyboard.data;
 
 	enum {EndTime = CLOCKRATE / TIC_FRAMERATE};
 	for (s32 i = 0; i < TIC_SOUND_CHANNELS; ++i )
@@ -1635,6 +1657,56 @@ static u32 api_btnp(tic_mem* tic, s32 index, s32 hold, s32 period)
 	return ((~previous.data) & machine->memory.ram.input.gamepads.data) & (1 << index);
 }
 
+static bool api_key(tic_mem* tic, tic_key key)
+{
+	return key >= TIC_KEY_START_INDEX 
+		? isKeyPressed(&tic->ram.input.keyboard, key) 
+		: tic->ram.input.keyboard.data;
+}
+
+static bool api_keyp(tic_mem* tic, tic_key key, s32 hold, s32 period)
+{
+	tic_machine* machine = (tic_machine*)tic;
+
+	if(key >= TIC_KEY_START_INDEX)
+	{			
+		bool prevDown = hold >= 0 && period >= 0 && machine->state.keyboard.holds[key] >= hold
+			? period && machine->state.keyboard.holds[key] % period 
+				? isKeyPressed(&machine->state.keyboard.previous, key) 
+				: false
+			: isKeyPressed(&machine->state.keyboard.previous, key);
+
+		bool down = isKeyPressed(&tic->ram.input.keyboard, key);
+
+		return !prevDown && down;
+	}
+
+	for(s32 i = 0; i < TIC_KEY_BUFFER; i++)
+	{
+		tic_key key = tic->ram.input.keyboard.keys[i];
+
+		if(key)
+		{
+			bool wasPressed = false;
+
+			for(s32 p = 0; p < TIC_KEY_BUFFER; p++)
+			{
+				if(machine->state.keyboard.previous.keys[p] == key)
+				{
+					wasPressed = true;
+					break;
+				}
+			}
+
+			if(!wasPressed)
+				return true;
+		}
+	}
+
+	return false;
+}
+
+
 static void api_load(tic_cartridge* cart, const u8* buffer, s32 size, bool palette)
 {
 	const u8* end = buffer + size;
@@ -1862,6 +1934,8 @@ static void initApi(tic_api* api)
 	INIT_API(resume);
 	INIT_API(sync);
 	INIT_API(btnp);
+	INIT_API(key);
+	INIT_API(keyp);
 	INIT_API(load);
 	INIT_API(save);
 	INIT_API(tick_start);
