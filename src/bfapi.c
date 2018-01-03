@@ -883,9 +883,9 @@ static s32 bf_key(bf_State* bf)
 	}
 	else if (top == 1)
 	{
-		tic_key key = getBfNumber(bf, 1) + TIC_KEY_START_INDEX;
+		tic_key key = getBfNumber(bf, 1);
 
-		if(key < TIC_KEYS_COUNT)
+		if(key < tic_keys_count)
 			bf_pushboolean(bf, tic->api.key(tic, key));
 		else
 		{
@@ -915,9 +915,9 @@ static s32 bf_keyp(bf_State* bf)
 	}
 	else
 	{
-		tic_key key = getBfNumber(bf, 1) + TIC_KEY_START_INDEX;
+		tic_key key = getBfNumber(bf, 1);
 
-		if(key >= TIC_KEYS_COUNT)
+		if(key >= tic_keys_count)
 		{
 			bfL_error(bf, "unknown keyboard code\n");
 		}
