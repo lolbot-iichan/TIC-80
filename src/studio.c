@@ -58,6 +58,7 @@
 #define OFFSET_TOP ((TIC80_FULLHEIGHT-TIC80_HEIGHT)/2)
 
 #define POPUP_DUR (TIC_FRAMERATE*2)
+#define DESYNC_FRAMES 10
 
 #if defined(TIC80_PRO)
 #define TIC_EDITOR_BANKS (TIC_BANKS)
@@ -232,7 +233,7 @@ static struct
 	FileSystem* fs;
 
 	bool quitFlag;
-	bool deSync;
+	s32 deSync;
 
 	s32 argc;
 	char **argv;
@@ -323,7 +324,7 @@ static struct
 
 	.fullscreen = false,
 	.quitFlag = false,
-	.deSync = false,
+	.deSync = 0,
 	.argc = 0,
 	.argv = NULL,
 };
@@ -2073,7 +2074,7 @@ static void transparentBlit(u32* out, s32 pitch)
 static void blitSound()
 {
 	SDL_PauseAudioDevice(studio.audio.device, 0);
-	
+
 	if(studio.audio.cvt.needed)
 	{
 		SDL_memcpy(studio.audio.cvt.buf, studio.tic->samples.buffer, studio.tic->samples.size);
@@ -2115,7 +2116,7 @@ static void drawDesyncLabel(u32* frame)
 		0b1100110010010011,
 	};
 
-	if(studio.deSync && getConfig()->showSync)
+	if(studio.deSync >= DESYNC_FRAMES && getConfig()->showSync)
 	{
 		enum{sx = TIC80_WIDTH-24, sy = 8, Cols = sizeof DesyncLabel[0]*BITS_IN_BYTE, Rows = COUNT_OF(DesyncLabel)};
 
@@ -2428,8 +2429,6 @@ static void renderStudio()
 
 	studio.tic->api.tick_end(studio.tic);
 
-	blitSound();
-
 	if(studio.mode != TIC_RUN_MODE)
 		useSystemPalette();
 	
@@ -2545,6 +2544,8 @@ static void tick()
 		SDL_SetCursor(SDL_CreateSystemCursor(studio.mouse.system));
 
 	SDL_RenderPresent(studio.renderer);
+
+	blitSound();
 }
 
 static void initSound()
@@ -2783,10 +2784,8 @@ s32 main(s32 argc, char **argv)
 	createFileSystem(argc > 1 && fsExists(argv[1]) ? fsBasename(argv[1]) : NULL, onFSInitialized);
 
 	{
-		u64 nextTick = SDL_GetPerformanceCounter();
-		const u64 Delta = SDL_GetPerformanceFrequency() / TIC_FRAMERATE;
 
-		bool useTimer = false;
+		bool useDelay = false;
 		{
 			SDL_RendererInfo info;
 			SDL_DisplayMode mode;
@@ -2794,28 +2793,35 @@ s32 main(s32 argc, char **argv)
 			SDL_GetRendererInfo(studio.renderer, &info);
 			SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(studio.window), &mode);
 
-			useTimer = !(info.flags & SDL_RENDERER_PRESENTVSYNC) || mode.refresh_rate != TIC_FRAMERATE;
+			useDelay = !(info.flags & SDL_RENDERER_PRESENTVSYNC) || mode.refresh_rate != TIC_FRAMERATE;
 		}
+
+		u64 nextTick = SDL_GetPerformanceCounter();
+		const u64 Delta = SDL_GetPerformanceFrequency() / TIC_FRAMERATE;
 
 		while (!studio.quitFlag)
 		{			
 			nextTick += Delta;
 			tick();
 
-			studio.deSync = false;
 			{
 				s64 delay = nextTick - SDL_GetPerformanceCounter();
 
-				if(delay > 0)
+				if(delay < 0)
 				{
-					if(SDL_GetWindowFlags(studio.window) & SDL_WINDOW_MINIMIZED || useTimer)
-						SDL_Delay((u32)(delay * 1000 / SDL_GetPerformanceFrequency()));
+					nextTick -= delay;
+
+					if(studio.deSync < DESYNC_FRAMES)
+						studio.deSync++;
 				}
 				else
 				{
-					nextTick -= delay;
-					studio.deSync = true;
+					if(useDelay || SDL_GetWindowFlags(studio.window) & SDL_WINDOW_MINIMIZED)
+						SDL_Delay((u32)(delay * 1000 / SDL_GetPerformanceFrequency()));
 				}
+
+				if(delay >= 0 && studio.deSync > 0)
+					studio.deSync--;
 			}
 		}
 	}
