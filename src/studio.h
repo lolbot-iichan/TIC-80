@@ -102,6 +102,7 @@ typedef struct
 	
 	bool checkNewVersion;
 	bool noSound;
+	bool useVsync;
 	s32 missedFrames;
 
 } StudioConfig;
@@ -117,7 +118,6 @@ typedef enum
 	TIC_WORLD_MODE,
 	TIC_SFX_MODE,
 	TIC_MUSIC_MODE,
-	TIC_KEYMAP_MODE,
 	TIC_DIALOG_MODE,
 	TIC_MENU_MODE,
 	TIC_SURF_MODE,

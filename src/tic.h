@@ -28,8 +28,8 @@
 
 #define TIC_VERSION_MAJOR 0
 #define TIC_VERSION_MINOR 60
-#define TIC_VERSION_PATCH 0
-#define TIC_VERSION_STATUS " dev"
+#define TIC_VERSION_PATCH 1
+#define TIC_VERSION_STATUS ""
 
 #if defined(TIC80_PRO)
 #define TIC_VERSION_POST " Pro"
@@ -108,6 +108,7 @@
 
 #define TIC_BANK_BITS 3
 #define TIC_BANKS (1 << TIC_BANK_BITS)
+#define TIC_GAMEPADS (sizeof(tic80_gamepads) / sizeof(tic80_gamepad))
 
 #define SFX_NOTES {"C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "B-"}
 #define TIC_FONT_CHARS 128

@@ -967,7 +967,23 @@ static void ticTexLine(tic_mem* memory, TexVert *v0, TexVert *v1)
 	float y = top->y;
 	float u = top->u;
 	float v = top->v;
-	for (; y < (s32)bot->y; y++)
+
+	if(y < .0f)
+	{
+		y = .0f - y;
+
+		x += step_x * y;
+		u += step_u * y;
+		v += step_v * y;
+
+		y = .0f;
+	}
+
+	s32 botY = bot->y;
+	if(botY > TIC80_HEIGHT)
+		botY = TIC80_HEIGHT;
+
+	for (; y < botY; y++)
 	{
 		setSideTexPixel(x, y, u, v);
 		x += step_x;
@@ -1326,7 +1342,7 @@ static void api_tick_end(tic_mem* memory)
 	}
 	
 	blip_end_frame(machine->blip, EndTime);
-	blip_read_samples(machine->blip, machine->memory.samples.buffer, machine->samplerate / TIC_FRAMERATE);
+	blip_read_samples(machine->blip, machine->memory.samples.buffer, machine->samplerate / TIC_FRAMERATE, 0);
 
 	machine->state.setpix = setPixelOvr;
 	machine->state.getpix = getPixelOvr;
@@ -2128,7 +2144,7 @@ void parseCode(const tic_script_config* config, const char* start, u8* color, co
 				ptr += strlen(config->singleComment);
 				continue;
 			}
-			else if(isalpha_(c))
+			else if(isalpha_(c) && ptr[-1] != '.')
 			{
 				wordStart = ptr;
 				ptr++;

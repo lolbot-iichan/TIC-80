@@ -32,7 +32,6 @@
 #include "music.h"
 #include "history.h"
 #include "config.h"
-#include "keymap.h"
 #include "code.h"
 #include "dialog.h"
 #include "menu.h"
@@ -41,22 +40,16 @@
 #include "fs.h"
 
 #include <zlib.h>
-#include "ext/net/SDL_net.h"
+#include "net.h"
 #include "ext/gif.h"
 #include "ext/md5.h"
 
 #define STUDIO_UI_SCALE 3
-
 #define TEXTURE_SIZE (TIC80_FULLWIDTH)
-
-#define MAX_CONTROLLERS (sizeof(tic80_gamepads))
 #define STUDIO_PIXEL_FORMAT SDL_PIXELFORMAT_ARGB8888
-
 #define FRAME_SIZE (TIC80_FULLWIDTH * TIC80_FULLHEIGHT * sizeof(u32))
-
 #define OFFSET_LEFT ((TIC80_FULLWIDTH-TIC80_WIDTH)/2)
 #define OFFSET_TOP ((TIC80_FULLHEIGHT-TIC80_HEIGHT)/2)
-
 #define POPUP_DUR (TIC_FRAMERATE*2)
 
 #if defined(TIC80_PRO)
@@ -111,7 +104,7 @@ static struct
 		SDL_AudioCVT 		cvt;
 	} audio;
 
-	SDL_Joystick* joysticks[MAX_CONTROLLERS];
+	SDL_Joystick* joysticks[TIC_GAMEPADS];
 
 	EditorMode mode;
 	EditorMode prevMode;
@@ -223,7 +216,6 @@ static struct
 		Run* run;
 		World* world;
 		Config* config;
-		Keymap* keymap;
 		Dialog* dialog;
 		Menu* menu;
 		Surf* surf;
@@ -1007,7 +999,6 @@ void setStudioMode(EditorMode mode)
 		case TIC_START_MODE:
 		case TIC_CONSOLE_MODE:
 		case TIC_RUN_MODE:
-		case TIC_KEYMAP_MODE:
 		case TIC_DIALOG_MODE:
 		case TIC_MENU_MODE:
 			break;
@@ -1851,13 +1842,6 @@ static bool processShortcuts(SDL_KeyboardEvent* event)
 				return true;
 			}
 
-			// TODO: move this to keymap
-			if(studio.mode == TIC_KEYMAP_MODE)
-			{
-				studio.keymap->escape(studio.keymap);
-				return true;
-			}
-
 			if(studio.mode == TIC_DIALOG_MODE)
 			{
 				studio.dialog->escape(studio.dialog);
@@ -1946,7 +1930,7 @@ SDL_Event* pollEvent()
 			{
 				s32 id = event.jdevice.which;
 
-				if (id < MAX_CONTROLLERS)
+				if (id < TIC_GAMEPADS)
 				{
 					if(studio.joysticks[id])
 						SDL_JoystickClose(studio.joysticks[id]);
@@ -1960,7 +1944,7 @@ SDL_Event* pollEvent()
 			{
 				s32 id = event.jdevice.which;
 
-				if (id < MAX_CONTROLLERS && studio.joysticks[id])
+				if (id < TIC_GAMEPADS && studio.joysticks[id])
 				{
 					SDL_JoystickClose(studio.joysticks[id]);
 					studio.joysticks[id] = NULL;
@@ -2418,7 +2402,6 @@ static void renderStudio()
 		break;
 
 	case TIC_WORLD_MODE:	studio.world->tick(studio.world); break;
-	case TIC_KEYMAP_MODE:	studio.keymap->tick(studio.keymap); break;
 	case TIC_DIALOG_MODE:	studio.dialog->tick(studio.dialog); break;
 	case TIC_MENU_MODE:		studio.menu->tick(studio.menu); break;
 	case TIC_SURF_MODE:		studio.surf->tick(studio.surf); break;
@@ -2669,14 +2652,28 @@ u32 unzip(u8** dest, const u8* source, size_t size)
 	return 0;
 }
 
+static void initKeymap()
+{
+	FileSystem* fs = studio.fs;
+
+	s32 size = 0;
+	u8* data = (u8*)fsLoadFile(fs, KEYMAP_DAT_PATH, &size);
+
+	if(data)
+	{
+		if(size == KEYMAP_SIZE)
+			memcpy(getKeymap(), data, KEYMAP_SIZE);
+
+		SDL_free(data);
+	}
+}
+
 static void onFSInitialized(FileSystem* fs)
 {
 	studio.fs = fs;
 
 	SDL_SetHint(SDL_HINT_WINRT_HANDLE_BACK_BUTTON, "1");
 	SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
-
-	SDLNet_Init();
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK);
 
@@ -2709,7 +2706,6 @@ static void onFSInitialized(FileSystem* fs)
 		studio.run 		= SDL_calloc(1, sizeof(Run));
 		studio.world 	= SDL_calloc(1, sizeof(World));
 		studio.config 	= SDL_calloc(1, sizeof(Config));
-		studio.keymap 	= SDL_calloc(1, sizeof(Keymap));
 		studio.dialog 	= SDL_calloc(1, sizeof(Dialog));
 		studio.menu 	= SDL_calloc(1, sizeof(Menu));
 		studio.surf 	= SDL_calloc(1, sizeof(Surf));
@@ -2717,7 +2713,8 @@ static void onFSInitialized(FileSystem* fs)
 
 	fsMakeDir(fs, TIC_LOCAL);
 	initConfig(studio.config, studio.tic, studio.fs);
-	initKeymap(studio.keymap, studio.tic, studio.fs);
+
+	initKeymap();
 
 	initStart(studio.start, studio.tic);
 	initConsole(studio.console, studio.tic, studio.fs, studio.config, studio.argc, studio.argv);
@@ -2744,7 +2741,7 @@ static void onFSInitialized(FileSystem* fs)
 #if defined(__CHIP__)
 		SDL_RENDERER_SOFTWARE
 #else
-		SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
+		SDL_RENDERER_ACCELERATED | (getConfig()->useVsync ? SDL_RENDERER_PRESENTVSYNC : 0)
 #endif
 	);
 
@@ -2822,7 +2819,11 @@ s32 main(s32 argc, char **argv)
 				else
 				{
 					if(useDelay || SDL_GetWindowFlags(studio.window) & SDL_WINDOW_MINIMIZED)
-						SDL_Delay((u32)(delay * 1000 / SDL_GetPerformanceFrequency()));
+					{
+						u32 time = (u32)(delay * 1000 / SDL_GetPerformanceFrequency());
+						if(time >= 10)
+							SDL_Delay(time);
+					}
 				}
 
 				if(studio.missedFrames > 0)
@@ -2832,6 +2833,8 @@ s32 main(s32 argc, char **argv)
 	}
 
 #endif
+
+	closeNet(studio.surf->net);
 
 	{
 		for(s32 i = 0; i < TIC_EDITOR_BANKS; i++)
@@ -2848,7 +2851,6 @@ s32 main(s32 argc, char **argv)
 		SDL_free(studio.run);
 		SDL_free(studio.world);
 		SDL_free(studio.config);
-		SDL_free(studio.keymap);
 		SDL_free(studio.dialog);
 		SDL_free(studio.menu);
 		SDL_free(studio.surf);
@@ -2875,7 +2877,6 @@ s32 main(s32 argc, char **argv)
 	SDL_Quit();
 #endif
 
-	SDLNet_Quit();
 	exit(0);
 
 	return 0;
