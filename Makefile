@@ -164,7 +164,6 @@ DEMO_ASSETS= \
 	bin/assets/config.tic.dat
 
 DEMOS_FOR_EXPORT= \
-	bin/html/js_input.html \
 	bin/html/bf_btnp.html \
 	bin/html/bf_circ.html \
 	bin/html/bf_coordinates.html \
