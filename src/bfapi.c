@@ -887,7 +887,7 @@ static s32 bf_key(bf_State* bf)
 	{
 		tic_key key = getBfNumber(bf, 1);
 
-		if(key < tic_keys_count)
+		if(key < tic_key_escape)
 			bf_pushboolean(bf, tic->api.key(tic, key));
 		else
 		{
@@ -919,7 +919,7 @@ static s32 bf_keyp(bf_State* bf)
 	{
 		tic_key key = getBfNumber(bf, 1);
 
-		if(key >= tic_keys_count)
+		if(key >= tic_key_escape)
 		{
 			bfL_error(bf, "unknown keyboard code\n");
 		}
@@ -1148,6 +1148,7 @@ static s32 bf_pmem(bf_State *bf)
 			{
 				s16 nval = getBfNumber(bf, 2);
 				((s16*)memory->persistent.data)[index] = nval;
+				machine->data->syncPMEM = true;
 			}
 
 			bf_pushinteger(bf, val );
