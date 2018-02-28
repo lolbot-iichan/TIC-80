@@ -21,6 +21,9 @@
 // SOFTWARE.
 
 #include "machine.h"
+
+#if defined(TIC_BUILD_WITH_JS)
+
 #include "tools.h"
 
 #include <ctype.h>
@@ -248,13 +251,9 @@ static s32 duk_key(duk_context* duk)
 	{
 		tic_key key = duk_to_int(duk, 0);
 
-		if(key < tic_keys_count)
+		if(key < tic_key_escape)
 			duk_push_boolean(duk, tic->api.key(tic, key));
-		else
-		{
-			duk_error(duk, DUK_ERR_ERROR, "unknown keyboard code\n");
-			return 0;
-		}
+		else return duk_error(duk, DUK_ERR_ERROR, "unknown keyboard code\n");
 	}
 
 	return 1;
@@ -273,10 +272,9 @@ static s32 duk_keyp(duk_context* duk)
 	{
 		tic_key key = duk_to_int(duk, 0);
 
-		if(key >= tic_keys_count)
+		if(key >= tic_key_escape)
 		{
-			duk_error(duk, DUK_ERR_ERROR, "unknown keyboard code\n");
-			return 0;
+			return duk_error(duk, DUK_ERR_ERROR, "unknown keyboard code\n");
 		}
 		else
 		{
@@ -325,8 +323,7 @@ static duk_ret_t duk_sfx(duk_context* duk)
 
 					if(!tic_tool_parse_note(noteStr, &note, &octave))
 					{
-						duk_error(duk, DUK_ERR_ERROR, "invalid note, should be like C#4\n");
-						return 0;
+						return duk_error(duk, DUK_ERR_ERROR, "invalid note, should be like C#4\n");
 					}
 				}
 				else
@@ -340,8 +337,7 @@ static duk_ret_t duk_sfx(duk_context* duk)
 	}
 	else
 	{
-		duk_error(duk, DUK_ERR_ERROR, "unknown sfx index\n");
-		return 0;
+		return duk_error(duk, DUK_ERR_ERROR, "unknown sfx index\n");
 	}
 
 	s32 duration = duk_is_null_or_undefined(duk, 2) ? -1 : duk_to_int(duk, 2);
@@ -356,7 +352,7 @@ static duk_ret_t duk_sfx(duk_context* duk)
 		memory->api.sfx_stop(memory, channel);
 		memory->api.sfx_ex(memory, index, note, octave, duration, channel, volume & 0xf, speed);
 	}
-	else duk_error(duk, DUK_ERR_ERROR, "unknown channel\n");
+	else return duk_error(duk, DUK_ERR_ERROR, "unknown channel\n");
 
 	return 0;
 }
@@ -568,16 +564,19 @@ static duk_ret_t duk_pmem(duk_context* duk)
 
 	if(index < TIC_PERSISTENT_SIZE)
 	{
-		s32 val = memory->persistent.data[index];
+		u32 val = memory->persistent.data[index];
 
 		if(!duk_is_null_or_undefined(duk, 1))
-			memory->persistent.data[index] = duk_to_int(duk, 1);
+		{
+			memory->persistent.data[index] = duk_to_uint(duk, 1);
+			machine->data->syncPMEM = true;
+		}
 		
 		duk_push_int(duk, val);
 
 		return 1;
 	}
-	else duk_error(duk, DUK_ERR_ERROR, "invalid persistent memory index\n");
+	else return duk_error(duk, DUK_ERR_ERROR, "invalid persistent memory index\n");
 
 	return 0;
 }
@@ -762,7 +761,7 @@ static duk_ret_t duk_sync(duk_context* duk)
 	if(bank >= 0 && bank < TIC_BANKS)
 		memory->api.sync(memory, mask, bank, toCart);
 	else
-		duk_error(duk, DUK_ERR_ERROR, "sync() error, invalid bank");
+		return duk_error(duk, DUK_ERR_ERROR, "sync() error, invalid bank");
 
 	return 0;
 }
@@ -828,21 +827,12 @@ s32 duk_timeout_check(void* udata)
 	tic_machine* machine = (tic_machine*)udata;
 	tic_tick_data* tick = machine->data;
 
-	enum{Wait = 1000}; // 1 sec
-
-	if(ForceExitCounter)
-		return ForceExitCounter < tick->counter();
-	else if(tick->forceExit && tick->forceExit(tick->data))
-		ForceExitCounter = tick->counter() + Wait * 1000 / tick->freq();
-
-	return false;
+	return ForceExitCounter++ > 1000 ? tick->forceExit && tick->forceExit(tick->data) : false;
 }
 
 static void initDuktape(tic_machine* machine)
 {
 	closeJavascript((tic_mem*)machine);
-
-	ForceExitCounter = 0;
 
 	duk_context* duk = machine->js = duk_create_heap(NULL, NULL, NULL, machine, NULL);
 
@@ -880,6 +870,8 @@ static bool initJavascript(tic_mem* tic, const char* code)
 
 static void callJavascriptTick(tic_mem* tic)
 {
+	ForceExitCounter = 0;
+
 	tic_machine* machine = (tic_machine*)tic;
 
 	const char* TicFunc = ApiKeywords[0];
@@ -899,14 +891,12 @@ static void callJavascriptTick(tic_mem* tic)
 	}
 }
 
-static void callJavascriptScanline(tic_mem* memory, s32 row, void* data)
+static void callJavascriptScanlineName(tic_mem* memory, s32 row, void* data, const char* name)
 {
 	tic_machine* machine = (tic_machine*)memory;
 	duk_context* duk = machine->js;
 
-	const char* ScanlineFunc = ApiKeywords[1];
-
-	if(duk_get_global_string(duk, ScanlineFunc)) 
+	if(duk_get_global_string(duk, name)) 
 	{
 		duk_push_int(duk, row);
 
@@ -917,7 +907,15 @@ static void callJavascriptScanline(tic_mem* memory, s32 row, void* data)
 	duk_pop(duk);
 }
 
-static void callJavascriptOverlap(tic_mem* memory, void* data)
+static void callJavascriptScanline(tic_mem* memory, s32 row, void* data)
+{
+	callJavascriptScanlineName(memory, row, data, ApiKeywords[1]);
+
+	// try to call old scanline
+	callJavascriptScanlineName(memory, row, data, "scanline");
+}
+
+static void callJavascriptOverline(tic_mem* memory, void* data)
 {
 	tic_machine* machine = (tic_machine*)memory;
 	duk_context* duk = machine->js;
@@ -1009,7 +1007,7 @@ static const tic_script_config JsSyntaxConfig =
 	.close 				= closeJavascript,
 	.tick 				= callJavascriptTick,
 	.scanline 			= callJavascriptScanline,
-	.overlap 			= callJavascriptOverlap,
+	.overline 			= callJavascriptOverline,
 
 	.getOutline			= getJsOutline,
 	.parse 				= parseCode,
@@ -1031,3 +1029,9 @@ const tic_script_config* getJsScriptConfig()
 {
 	return &JsSyntaxConfig;
 }
+
+#else
+
+s32 duk_timeout_check(void* udata){return 0;}
+
+#endif /* defined(TIC_BUILD_WITH_JS) */

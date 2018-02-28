@@ -29,6 +29,8 @@
 #include "machine.h"
 #include "studio.h"
 
+#if defined(TIC_BUILD_WITH_BF)
+
 #define BF_GLOBAL_MACRO_NAME "//GLOBAL\\"
 #define BF_MAX_MACRO_NUM 1024
 #define BF_MAX_API_PARAMS 258
@@ -1611,7 +1613,7 @@ static void callBrainfuckScanline(tic_mem* memory, s32 row, void* data)
 	}
 }
 
-static void callBrainfuckOverlap(tic_mem* memory, void* data)
+static void callBrainfuckOverline(tic_mem* memory, void* data)
 {
 	tic_machine* machine = (tic_machine*)memory;
 	if(machine->bf)
@@ -1744,7 +1746,7 @@ static const tic_script_config BfSyntaxConfig =
 	.close 				= closeBrainfuck,
 	.tick 				= callBrainfuckTick,
 	.scanline 			= callBrainfuckScanline,
-	.overlap 			= callBrainfuckOverlap,
+	.overline 			= callBrainfuckOverline,
 
 	.getOutline			= getBrainfuckOutline,
 	.parse				= parseBrainfuck,
@@ -1766,3 +1768,5 @@ const tic_script_config* getBfScriptConfig()
 {
 	return &BfSyntaxConfig;
 }
+
+#endif /* defined(TIC_BUILD_WITH_BF) */
