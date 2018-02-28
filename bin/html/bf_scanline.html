@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<title>TIC-80 tiny computer</title>
+
+	<style type="text/css">
+		.modal{display:none;position:fixed;z-index:1;padding-top:100px;left:0;top:0;width:100%;height:100%;overflow:auto;background-color:#000;background-color:rgba(0,0,0,.4)}.modal-content{position:relative;background-color:#fefefe;margin:auto;padding:2px 16px;border:1px solid #888;width:500px;box-shadow:0 4px 8px 0 rgba(0,0,0,.2),0 6px 20px 0 rgba(0,0,0,.19);-webkit-animation-name:animatetop;-webkit-animation-duration:.4s;animation-name:animatetop;animation-duration:.4s}@keyframes animatetop{from{top:-300px;opacity:0}to{top:0;opacity:1}}.close{color:#000;float:right;font-size:28px;font-weight:700}.close:focus,.close:hover{color:#000;text-decoration:none;cursor:pointer}
+	</style>
+</head>
+<body style="margin:0; padding:0;">
+
+	<div>
+		<canvas style="margin: 0 auto; display: block;" id="canvas" oncontextmenu="event.preventDefault()" onmousedown="window.focus()"></canvas>
+	</div>
+
+	<div id="add-modal" class="modal">
+		<div class="modal-content">
+			<span class="close">&times</span>
+			<p>Select a file to add to the computer</p>
+			<p><input type="file" id="upload-input"></input></p>
+		</div>
+	</div>
+
+	<script type="text/javascript">
+		var Module = {canvas: document.getElementById('canvas')};		
+		var cartridge = [120,218,99,92,192,196,64,8,252,251,15,4,74,74,74,253,29,29,29,253,32,26,200,237,255,255,1,142,255,255,127,255,78,73,233,255,187,142,142,15,239,148,154,62,188,251,223,255,225,255,135,254,15,31,96,24,187,254,255,120,245,255,71,210,207,48,10,6,20,128,227,10,20,119,96,248,3,204,214,7,198,227,127,134,15,255,129,113,251,239,127,63,195,127,96,220,189,239,7,198,95,7,20,131,226,147,225,195,251,119,255,255,191,123,71,169,126,86,86,70,6,101,133,146,204,146,156,84,43,5,133,226,228,196,188,156,204,188,84,5,125,133,164,162,196,204,188,180,210,228,108,46,101,133,196,210,146,140,252,34,43,133,156,164,248,204,76,32,63,37,181,56,25,168,90,161,56,35,191,92,1,132,75,242,21,74,139,83,21,212,97,250,213,129,138,138,147,139,50,11,74,172,144,12,226,178,179,211,134,130,104,27,24,203,78,55,214,38,218,78,215,78,87,215,198,70,55,22,172,130,139,75,31,102,144,62,151,130,178,66,65,126,118,170,134,161,150,65,133,137,129,129,129,174,153,137,78,142,38,151,130,93,12,72,56,70,91,207,78,207,198,70,79,71,1,69,161,5,72,161,161,145,41,146,74,19,144,82,144,90,160,98,46,125,160,21,33,158,206,250,10,49,201,57,197,49,64,221,250,92,156,118,148,69,36,51,11,151,1,132,5,202,145,48,90,192,40,164,108,198,174,59,255,222,159,93,221,153,238,170,204,8,227,195,104,30,160,30,17,30,25,23,21,19,3,147,92,63,47,191,86,31,3,147,84,149,11,110,30,165,133,137,145,181,231,46,213,234,180,78,93,152,187,74,231,210,170,153,185,135,78,221,186,18,119,239,221,53,0,143,124,45,160,];
+	</script>
+
+	<script async type="text/javascript" src="tic.js"></script>
+
+</body>
+</html>

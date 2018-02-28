@@ -1,9 +1,9 @@
 CC=gcc
-OPT=-O3 -Wall -std=c99
+OPT=-O3 -Wall -std=gnu99
 OPT_PRO=-DTIC80_PRO
 BIN_NAME= bin/tic80
 
-3RD_PARTY = ../3rd-party
+3RD_PARTY = 3rd-party
 DUKTAPE_LIB = $(3RD_PARTY)/duktape-2.2.0/src
 BLIPBUF_LIB = $(3RD_PARTY)/blip-buf
 SDL_NET_LIB = $(3RD_PARTY)/SDL2_net-2.0.1
@@ -17,6 +17,8 @@ INCLUDES= \
 	-I$(3RD_PARTY)/zlib-1.2.8 \
 	-I$(3RD_PARTY)/giflib-5.1.4/lib \
 	-I$(3RD_PARTY)/SDL2-2.0.7/include \
+	-I$(3RD_PARTY)/sdl-gpu/include \
+	-I$(3RD_PARTY)/wren-0.1.0/src/include \
 	-I$(3RD_PARTY)/moonscript \
 	-I$(BLIPBUF_LIB) \
 	-I$(DUKTAPE_LIB) \
@@ -26,13 +28,12 @@ INCLUDES= \
 MINGW_LINKER_FLAGS= \
 	-L$(PRE_BUILT)/mingw \
 	-lmingw32 \
-	-lSDL2main \
-	-lSDL2 \
-	-lz \
-	-lgif \
-	-llua \
 	-lcomdlg32 \
 	-lws2_32 \
+	-lsdlgpu \
+	-lSDL2main \
+	-lSDL2 \
+	-lopengl32 \
 	-mwindows
 
 GTK_INCLUDES= `pkg-config --cflags gtk+-3.0`
@@ -44,44 +45,49 @@ LINUX_INCLUDES= \
 
 LINUX_LIBS= \
 	$(GTK_LIBS) \
-	`sdl2-config --static-libs`
+	`sdl2-config --static-libs` \
+	-L$(3RD_PARTY)/wren-0.1.0/lib \
+	-L$(3RD_PARTY)/sdl-gpu/build/linux
 
 LINUX64_LIBS= \
-	$(LINUX_LIBS) \
+	$(GTK_LIBS) \
 	-L$(PRE_BUILT)/linux64
 
 LINUX32_LIBS= \
-	$(LINUX_LIBS) \
+	$(GTK_LIBS) \
 	-L$(PRE_BUILT)/linux32
 
 LINUX_ARM_LIBS= \
 	-L$(PRE_BUILT)/arm
 
 LINUX_LINKER_LTO_FLAGS= \
-	-D_GNU_SOURCE \
 	-lSDL2 \
+	-lsdlgpu \
 	-llua \
+	-lwren \
 	-lgif \
 	-ldl \
 	-lm \
 	-lpthread \
 	-lrt \
-	-lz
+	-lz \
+	-lGL
 
 LINUX_LINKER_FLAGS= \
-	-D_GNU_SOURCE \
 	-llua5.3 \
+	-lwren \
 	-ldl \
 	-lm \
 	-lpthread \
 	-lrt \
-	-lz
+	-lz \
+	-lsdlgpu \
+	-lGL
 
 MINGW_OUTPUT=$(BIN_NAME).exe
 
 EMS_CC=emcc
 EMS_OPT= \
-	-D_GNU_SOURCE \
 	-Wno-typedef-redefinition \
 	-s USE_SDL=2 \
 	-s TOTAL_MEMORY=67108864 \
@@ -93,26 +99,29 @@ EMS_OPT= \
 EMS_LINKER_FLAGS= \
 	-L$(PRE_BUILT)/emscripten \
 	-llua \
+	-lwren \
 	-lgif \
-	-lz
+	-lz \
+	-lsdlgpu
 
 MACOSX_OPT= \
 	-mmacosx-version-min=10.6 \
 	-Wno-typedef-redefinition \
-	-D_THREAD_SAFE \
-	-D_GNU_SOURCE
+	-D_THREAD_SAFE
 
 MACOSX_LIBS= \
 	-L$(PRE_BUILT)/macos \
 	-L/usr/local/lib \
-	-lSDL2 -lm -liconv -lobjc -llua -lz -lgif \
+	-lSDL2 -lm -liconv -lobjc -llua -lwren -lz -lgif \
+	-lsdlgpu \
 	-Wl,-framework,CoreAudio \
 	-Wl,-framework,AudioToolbox \
 	-Wl,-framework,ForceFeedback \
 	-Wl,-framework,CoreVideo \
 	-Wl,-framework,Cocoa \
 	-Wl,-framework,Carbon \
-	-Wl,-framework,IOKit
+	-Wl,-framework,IOKit \
+	-Wl,-framework,OpenGL
 
 SOURCES=\
 	src/studio.c \
@@ -140,6 +149,9 @@ SOURCES=\
 	src/net.c \
 	src/surf.c
 
+SYSTEM=\
+	src/system.c
+
 SOURCES_EXT= \
 	src/html.c
 
@@ -156,13 +168,32 @@ DEMO_ASSETS= \
 	bin/assets/music.tic.dat \
 	bin/assets/font.tic.dat \
 	bin/assets/tetris.tic.dat \
+	bin/assets/bfdemo.tic.dat \
 	bin/assets/jsdemo.tic.dat \
 	bin/assets/luademo.tic.dat \
 	bin/assets/moondemo.tic.dat \
+	bin/assets/wrendemo.tic.dat \
 	bin/assets/benchmark.tic.dat \
 	bin/assets/config.tic.dat
 
-all: run
+DEMOS_FOR_EXPORT= \
+	bin/html/bf_btnp.html \
+	bin/html/bf_circ.html \
+	bin/html/bf_coordinates.html \
+	bin/html/bf_demo.html \
+	bin/html/bf_exit.html \
+	bin/html/bf_font.html \
+	bin/html/bf_fps.html \
+	bin/html/bf_minmax.html \
+	bin/html/bf_mouse2.html \
+	bin/html/bf_mset.html \
+	bin/html/bf_pmem.html \
+	bin/html/bf_reset.html \
+	bin/html/bf_scanline.html \
+	bin/html/bf_sfx.html \
+	bin/html/bf_time.html
+
+all: run html
 
 TIC80_H = include/tic80_types.h include/tic80.h include/tic80_config.h src/tic.h src/ticapi.h src/machine.h
 
@@ -241,16 +272,27 @@ bin/menu.o: src/menu.c $(TIC80_H) $(TIC_H)
 bin/surf.o: src/surf.c $(TIC80_H) $(TIC_H)
 	$(CC) $< $(OPT) $(INCLUDES) -c -o $@
 
+bin/system.o: src/system.c src/keycodes.c $(TIC80_H) $(TIC_H)
+	$(CC) $< $(OPT) $(INCLUDES) -c -o $@
+
+bin/chip.o: src/system/chip.c src/keycodes.c $(TIC80_H) $(TIC_H)
+	$(CC) $< $(OPT) $(INCLUDES) -c -o $@
+
+SDL_NET = \
+	bin/SDLnet.o \
+	bin/SDLnetTCP.o \
+	bin/SDLnetselect.o \
+	bin/net.o
+
+FILE_DIALOG = \
+	bin/file_dialog.o
+
 TIC_O=\
 	bin/studio.o \
 	bin/console.o \
 	bin/run.o \
-	bin/file_dialog.o \
 	bin/md5.o \
 	bin/gif.o \
-	bin/SDLnet.o \
-	bin/SDLnetTCP.o \
-	bin/SDLnetselect.o \
 	bin/fs.o \
 	bin/tools.o \
 	bin/start.o \
@@ -262,7 +304,6 @@ TIC_O=\
 	bin/world.o \
 	bin/config.o \
 	bin/code.o \
-	bin/net.o \
 	bin/dialog.o \
 	bin/menu.o \
 	bin/surf.o
@@ -276,66 +317,98 @@ bin/tic.o: src/tic.c $(TIC80_H)
 bin/blip_buf.o: $(BLIP_SRC)
 	$(CC) $< $(OPT) $(INCLUDES) -c -o $@
 
+bin/bfapi.o: src/bfapi.c $(TIC80_H)
+	$(CC) $< $(OPT) $(INCLUDES) -c -o $@
+
 bin/jsapi.o: src/jsapi.c $(TIC80_H)
 	$(CC) $< $(OPT) $(INCLUDES) -c -o $@
 
 bin/luaapi.o: src/luaapi.c $(TIC80_H)
 	$(CC) $< $(OPT) $(INCLUDES) -c -o $@
 
+bin/wrenapi.o: src/wrenapi.c $(TIC80_H)
+	$(CC) $< $(OPT) $(INCLUDES) -c -o $@
+
 bin/duktape.o: $(DUKTAPE_LIB)/duktape.c $(TIC80_H)
 	$(CC) $< $(OPT) $(INCLUDES) -c -o $@
 
-TIC80_SRC = src/tic80.c src/tic.c $(BLIP_SRC) src/jsapi.c src/luaapi.c $(DUKTAPE_LIB)/duktape.c
-TIC80_O = bin/tic80.o bin/tic.o bin/tools.o bin/blip_buf.o bin/jsapi.o bin/luaapi.o bin/duktape.o bin/gif.o
+TIC80_SRC = src/tic80.c src/tic.c $(BLIP_SRC) src/jsapi.c src/bfapi.c src/luaapi.c src/wrenapi.c $(DUKTAPE_LIB)/duktape.c
+TIC80_O = bin/tic80.o bin/tic.o bin/tools.o bin/blip_buf.o bin/jsapi.o bin/bfapi.o bin/luaapi.o bin/wrenapi.o bin/duktape.o bin/gif.o
 TIC80_A = bin/libtic80.a
 TIC80_DLL = bin/tic80.dll
 
+STUDIO_A = bin/libstudio.a
+STUDIO_DLL = bin/studio.dll
+
 $(TIC80_DLL): $(TIC80_O)
-	$(CC) $(OPT) -shared $(TIC80_O) -L$(PRE_BUILT)/mingw -llua -lgif -Wl,--out-implib,$(TIC80_A) -o $@
+	$(CC) $(OPT) -shared $(TIC80_O) -L$(PRE_BUILT)/mingw -llua -lwren -lgif -Wl,--out-implib,$(TIC80_A) -o $@
+
+$(STUDIO_DLL): $(DEMO_ASSETS) $(TIC80_DLL) $(TIC_O) bin/html.o
+	$(CC) $(TIC_O) bin/html.o $(TIC80_A) $(OPT) -shared $(INCLUDES) -L$(PRE_BUILT)/mingw -llua -lz -lgif -Wl,--out-implib,$(STUDIO_A) -o $@
 
 emscripten:
-	$(EMS_CC) $(SOURCES) $(TIC80_SRC) $(OPT) $(INCLUDES) $(EMS_OPT) $(EMS_LINKER_FLAGS) -o build/html/tic.js
+	$(EMS_CC) $(SOURCES) $(SYSTEM) $(TIC80_SRC) $(OPT) $(INCLUDES) $(EMS_OPT) $(EMS_LINKER_FLAGS) -o build/html/tic.js
 
-mingw: $(DEMO_ASSETS) $(TIC80_DLL) $(TIC_O) bin/html.o bin/res.o
-	$(CC) $(TIC_O) bin/html.o bin/res.o $(TIC80_A) $(OPT) $(INCLUDES) $(MINGW_LINKER_FLAGS) -o $(MINGW_OUTPUT)
+wasm:
+	$(EMS_CC) $(SOURCES) $(SYSTEM) $(TIC80_SRC) $(OPT) $(INCLUDES) $(EMS_OPT) -s WASM=1 $(EMS_LINKER_FLAGS) -o build/html/tic.js
+
+mingw: $(STUDIO_DLL) $(SDL_NET) $(FILE_DIALOG) bin/system.o bin/res.o
+	$(CC) bin/system.o bin/res.o $(STUDIO_A) $(SDL_NET) $(FILE_DIALOG) $(OPT) $(INCLUDES) $(MINGW_LINKER_FLAGS) -o $(MINGW_OUTPUT)
 
 mingw-pro:
 	$(eval OPT += $(OPT_PRO))
 	make mingw OPT="$(OPT)"
 
+bin/html/%.html: demos/%.tic $(TIC2HTML)
+	$(TIC2HTML) build/html/index.html $< $@
+
+bin/html/tic.js: build/html/tic.js
+	cp build/html/tic.js bin/html/tic.js
+	
+html: $(DEMOS_FOR_EXPORT) bin/html/tic.js
+
 run: mingw-pro
 	$(MINGW_OUTPUT)
 
 linux64-lto:
-	$(CC) $(LINUX_INCLUDES) $(SOURCES) $(TIC80_SRC) $(SOURCES_EXT) $(OPT) $(INCLUDES) $(LINUX64_LIBS) $(LINUX_LINKER_LTO_FLAGS) -flto -o $(BIN_NAME)
+	$(CC) $(GTK_INCLUDES) $(SOURCES) $(SYSTEM) $(TIC80_SRC) $(SOURCES_EXT) $(OPT) $(INCLUDES) $(LINUX64_LIBS) $(LINUX_LINKER_LTO_FLAGS) -flto -o $(BIN_NAME)
 
 linux64-lto-pro:
 	$(eval OPT += $(OPT_PRO))
 	make linux64-lto OPT="$(OPT)"
 
 linux32-lto:
-	$(CC) $(LINUX_INCLUDES) $(SOURCES) $(TIC80_SRC) $(SOURCES_EXT) $(OPT) $(INCLUDES) $(LINUX32_LIBS) $(LINUX_LINKER_LTO_FLAGS) -flto -o $(BIN_NAME)
+	$(CC) $(GTK_INCLUDES) $(SOURCES) $(SYSTEM) $(TIC80_SRC) $(SOURCES_EXT) $(OPT) $(INCLUDES) $(LINUX32_LIBS) $(LINUX_LINKER_LTO_FLAGS) -flto -o $(BIN_NAME)
 
 linux32-lto-pro:
 	$(eval OPT += $(OPT_PRO))
 	make linux32-lto OPT="$(OPT)"
 
 chip-lto:
-	$(CC) $(LINUX_INCLUDES) $(GTK_INCLUDES) $(SOURCES) $(TIC80_SRC) $(SOURCES_EXT) $(OPT) -D__CHIP__ $(INCLUDES) $(LINUX_ARM_LIBS) $(GTK_LIBS) $(LINUX_LINKER_LTO_FLAGS) -flto -o $(BIN_NAME)
+	$(CC) $(LINUX_INCLUDES) $(GTK_INCLUDES) $(SOURCES) src/system/chip.c $(TIC80_SRC) $(SOURCES_EXT) $(OPT) -D__CHIP__ $(INCLUDES) $(LINUX_ARM_LIBS) $(GTK_LIBS) $(LINUX_LINKER_LTO_FLAGS) -flto -o $(BIN_NAME)
 
 chip-lto-pro:
 	$(eval OPT += $(OPT_PRO))
 	make chip-lto OPT="$(OPT)"
 
-linux: 
-	$(CC) $(LINUX_INCLUDES) $(SOURCES) $(LPEG_SRC) $(GIF_SRC) $(SOURCES_EXT) $(TIC80_SRC) $(OPT) $(INCLUDES) $(LINUX_LIBS) $(LINUX_LINKER_FLAGS) -o $(BIN_NAME)
+WREN_A=$(3RD_PARTY)/wren-0.1.0/lib/libwren.a
+SDLGPU_A=$(3RD_PARTY)/sdl-gpu/build/linux/libsdlgpu.a
+
+$(WREN_A):
+	make static -C $(3RD_PARTY)/wren-0.1.0/
+
+$(SDLGPU_A):
+	make -C $(3RD_PARTY)/sdl-gpu/build/linux/
+
+linux: $(WREN_A) $(SDLGPU_A)
+	$(CC) $(LINUX_INCLUDES) $(SOURCES) $(SYSTEM) $(LPEG_SRC) $(GIF_SRC) $(SOURCES_EXT) $(TIC80_SRC) $(OPT) $(INCLUDES) $(LINUX_LIBS) $(LINUX_LINKER_FLAGS) -o $(BIN_NAME)
 
 linux-pro:
 	$(eval OPT += $(OPT_PRO))
 	make linux OPT="$(OPT)"
 
 macosx:
-	$(CC) $(SOURCES) $(TIC80_SRC) $(SOURCES_EXT) src/ext/file_dialog.m $(OPT) $(MACOSX_OPT) $(INCLUDES) $(MACOSX_LIBS) -o $(BIN_NAME)
+	$(CC) $(SOURCES) $(SYSTEM) $(TIC80_SRC) $(SOURCES_EXT) src/ext/file_dialog.m $(OPT) $(MACOSX_OPT) $(INCLUDES) $(MACOSX_LIBS) -o $(BIN_NAME)
 
 macosx-pro:
 	$(eval OPT += $(OPT_PRO))
@@ -345,6 +418,7 @@ bin/res.o: build/mingw/res.rc build/mingw/icon.ico
 	windres $< $@
 
 BIN2TXT= tools/bin2txt/bin2txt
+TIC2HTML= tools/tic2html/tic2html
 
 bin/html.o: src/html.c build/html/index.html build/html/tic.js
 	$(BIN2TXT) build/html/index.html bin/assets/index.html.dat -z
@@ -378,10 +452,16 @@ bin/assets/music.tic.dat: demos/music.tic
 bin/assets/tetris.tic.dat: demos/tetris.tic
 	$(BIN2TXT) $< $@ -z
 
+bin/assets/bfdemo.tic.dat: demos/bfdemo.tic
+	$(BIN2TXT) $< $@ -z
+
 bin/assets/jsdemo.tic.dat: demos/jsdemo.tic
 	$(BIN2TXT) $< $@ -z
 
 bin/assets/luademo.tic.dat: demos/luademo.tic
+	$(BIN2TXT) $< $@ -z
+
+bin/assets/wrendemo.tic.dat: demos/wrendemo.tic
 	$(BIN2TXT) $< $@ -z
 
 bin/assets/moondemo.tic.dat: demos/moondemo.tic
