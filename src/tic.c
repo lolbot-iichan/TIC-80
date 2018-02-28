@@ -1547,7 +1547,6 @@ static const char* readMetatag(const char* code, const char* tag, const char* co
 	return NULL;
 }
 
-
 static bool compareMetatag(const char* code, const char* tag, const char* value, const char* comment)
 {
 	bool result = false;
@@ -1592,6 +1591,8 @@ static const tic_script_config* getScriptConfig(const char* code)
 	return getLuaScriptConfig();
 #elif defined(TIC_BUILD_WITH_JS)
 	return getJsScriptConfig();
+#elif defined(TIC_BUILD_WITH_BF)
+	return getBfScriptConfig();
 #elif defined(TIC_BUILD_WITH_WREN)
 	return getWrenScriptConfig();
 #endif
