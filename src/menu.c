@@ -118,13 +118,13 @@ static void drawDialog(Menu* menu)
 
 	{
 		static const char Label[] = "GAME MENU";
-		s32 size = tic->api.text(tic, Label, 0, -TIC_FONT_HEIGHT, 0);
+		s32 size = tic->api.text(tic, Label, 0, -tic->font.height, 0);
 		tic->api.text(tic, Label, rect.x + (DIALOG_WIDTH - size)/2, rect.y-(TOOLBAR_SIZE-2), (tic_color_gray));
 	}
 
 	{
 		u8 chromakey = 14;
-		tic->api.sprite_ex(tic, &tic->config.bank0.tiles, 0, rect.x+6, rect.y-4, 2, 2, &chromakey, 1, 1, tic_no_flip, tic_no_rotate);
+		tic->api.sprite_ex(tic, &getConfig()->cart->bank0.tiles, 0, rect.x+6, rect.y-4, 2, 2, &chromakey, 1, 1, tic_no_flip, tic_no_rotate);
 	}	
 }
 
@@ -209,7 +209,7 @@ static void drawPlayerButtons(Menu* menu, s32 x, s32 y)
 		if(menu->gamepad.selected == index && menu->ticks % TIC_FRAMERATE < TIC_FRAMERATE / 2)
 			continue;
 
-		tic->api.sprite_ex(tic, &tic->config.bank0.tiles, 8+i, rect.x, rect.y, 1, 1, &chromakey, 1, 1, tic_no_flip, tic_no_rotate);
+		tic->api.sprite_ex(tic, &getConfig()->cart->bank0.tiles, 8+i, rect.x, rect.y, 1, 1, &chromakey, 1, 1, tic_no_flip, tic_no_rotate);
 
 		static const char* const Names[tic_keys_count] = {"...", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "minus", "equals", "leftbracket", "rightbracket", "backslash", "semicolon", "apostrophe", "grave", "comma", "period", "slash", "space", "tab", "return", "backspace", "delete", "insert", "pageup", "pagedown", "home", "end", "up", "down", "left", "right", "capslock", "ctrl", "shift", "alt", "escape", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12"};
 
@@ -252,7 +252,7 @@ static void drawGamepadMenu(Menu* menu)
 
 	static const char Label[] = "BACK";
 
-	tic_rect rect = {dlgRect.x + 25, dlgRect.y + 49, (sizeof(Label)-1)*TIC_FONT_WIDTH, TIC_FONT_HEIGHT};
+	tic_rect rect = {dlgRect.x + 25, dlgRect.y + 49, (sizeof(Label)-1)*tic->font.width, tic->font.height};
 
 	bool over = false;
 	bool down = false;
@@ -320,7 +320,7 @@ static void drawMainMenu(Menu* menu)
 		{
 			if(!*Rows[i])continue;
 
-			tic_rect label = {rect.x + 22, rect.y + (TIC_FONT_HEIGHT+1)*i + 16, 86, TIC_FONT_HEIGHT+1};
+			tic_rect label = {rect.x + 22, rect.y + (tic->font.height+1)*i + 16, 86, tic->font.height+1};
 			bool over = false;
 			bool down = false;
 

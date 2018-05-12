@@ -57,7 +57,7 @@ static void drawButton(Dialog* dlg, const char* label, s32 x, s32 y, u8 color, u
 		tic->api.rect(tic, rect.x, rect.y, rect.w, rect.h, (tic_color_white));
 	}
 
-	s32 size = tic->api.text(tic, label, 0, -TIC_FONT_HEIGHT, 0);
+	s32 size = tic->api.text(tic, label, 0, -tic->font.height, 0);
 	tic->api.text(tic, label, rect.x + (BtnWidth - size+1)/2, rect.y + (down?3:2), over ? overColor : color);
 
 	if(dlg->focus == id)
@@ -162,22 +162,22 @@ static void drawDialog(Dialog* dlg)
 
 	{
 		static const char Label[] = "WARNING!";
-		s32 size = tic->api.text(tic, Label, 0, -TIC_FONT_HEIGHT, 0);
+		s32 size = tic->api.text(tic, Label, 0, -tic->font.height, 0);
 		tic->api.text(tic, Label, rect.x + (Width - size)/2, rect.y-(TOOLBAR_SIZE-2), (tic_color_gray));
 	}
 
 	{
 		u8 chromakey = 14;
-		tic->api.sprite_ex(tic, &tic->config.bank0.tiles, 2, rect.x+6, rect.y-4, 2, 2, &chromakey, 1, 1, tic_no_flip, tic_no_rotate);
+		tic->api.sprite_ex(tic, &getConfig()->cart->bank0.tiles, 2, rect.x+6, rect.y-4, 2, 2, &chromakey, 1, 1, tic_no_flip, tic_no_rotate);
 	}
 
 	{
 		for(s32 i = 0; i < dlg->rows; i++)
 		{
-			s32 size = tic->api.text(tic, dlg->text[i], 0, -TIC_FONT_HEIGHT, 0);
+			s32 size = tic->api.text(tic, dlg->text[i], 0, -tic->font.height, 0);
 
 			s32 x = rect.x + (Width - size)/2;
-			s32 y = rect.y + (TIC_FONT_HEIGHT+1)*(i+1);
+			s32 y = rect.y + (tic->font.height+1)*(i+1);
 			tic->api.text(tic, dlg->text[i], x, y+1, (tic_color_black));
 			tic->api.text(tic, dlg->text[i], x, y, (tic_color_white));
 		}

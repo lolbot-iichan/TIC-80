@@ -8,6 +8,8 @@ typedef struct
 	void	(*setClipboardText)(const char* text);
 	bool	(*hasClipboardText)();
 	char* 	(*getClipboardText)();
+	void 	(*freeClipboardText)(const char* text);
+
 	u64 	(*getPerformanceCounter)();
 	u64 	(*getPerformanceFrequency)();
 
@@ -61,6 +63,12 @@ typedef struct
 
 		} gamepad;
 
+		struct
+		{
+			s32 width;
+			s32 height;
+		} font;
+
 	} theme;
 
 	s32 gifScale;
@@ -72,6 +80,7 @@ typedef struct
 	bool crtMonitor;
 
 	const char* crtShader;
+	const tic_cartridge* cart;
 
 } StudioConfig;
 

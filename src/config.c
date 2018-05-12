@@ -196,6 +196,34 @@ static void readCodeTheme(Config* config, lua_State* lua)
 	lua_pop(lua, 1);
 }
 
+static void readFontTheme(Config* config, lua_State* lua)
+{
+	lua_getfield(lua, -1, "FONT");
+
+	if(lua_type(lua, -1) == LUA_TTABLE)
+	{
+		{
+			lua_getfield(lua, -1, "WIDTH");
+
+			if(lua_isinteger(lua, -1))
+				config->data.theme.font.width = lua_tointeger(lua, -1);
+
+			lua_pop(lua, 1);
+		}
+
+		{
+			lua_getfield(lua, -1, "HEIGHT");
+
+			if(lua_isinteger(lua, -1))
+				config->data.theme.font.height = lua_tointeger(lua, -1);
+
+			lua_pop(lua, 1);
+		}
+	}
+
+	lua_pop(lua, 1);
+}
+
 static void readGamepadTheme(Config* config, lua_State* lua)
 {
 	lua_getfield(lua, -1, "GAMEPAD");
@@ -229,6 +257,7 @@ static void readTheme(Config* config, lua_State* lua)
 		readCursorTheme(config, lua);
 		readCodeTheme(config, lua);
 		readGamepadTheme(config, lua);
+		readFontTheme(config, lua);
 	}
 
 	lua_pop(lua, 1);
@@ -240,7 +269,7 @@ static void readConfig(Config* config)
 
 	if(lua)
 	{
-		if(luaL_loadstring(lua, config->tic->config.bank0.code.data) == LUA_OK && lua_pcall(lua, 0, LUA_MULTRET, 0) == LUA_OK)
+		if(luaL_loadstring(lua, config->cart.bank0.code.data) == LUA_OK && lua_pcall(lua, 0, LUA_MULTRET, 0) == LUA_OK)
 		{
 			readConfigVideoLength(config, lua);
 			readConfigVideoScale(config, lua);
@@ -251,7 +280,7 @@ static void readConfig(Config* config)
 			readTheme(config, lua);
 		}
 
-		if(luaL_loadstring(lua, config->tic->config.bank1.code.data) == LUA_OK && lua_pcall(lua, 0, LUA_MULTRET, 0) == LUA_OK)
+		if(luaL_loadstring(lua, config->cart.bank1.code.data) == LUA_OK && lua_pcall(lua, 0, LUA_MULTRET, 0) == LUA_OK)
 		{
 			readConfigCrtShader(config, lua);
 		}
@@ -262,7 +291,7 @@ static void readConfig(Config* config)
 
 static void update(Config* config, const u8* buffer, size_t size)
 {
-	config->tic->api.load(&config->tic->config, buffer, size, true);
+	config->tic->api.load(&config->cart, buffer, size, true);
 
 	readConfig(config);
 	studioConfigChanged();
@@ -271,6 +300,8 @@ static void update(Config* config, const u8* buffer, size_t size)
 static void setDefault(Config* config)
 {
 	memset(&config->data, 0, sizeof(StudioConfig));
+
+	config->data.cart = &config->cart;
 
 	{
 		static const u8 DefaultBiosZip[] = 
@@ -296,7 +327,7 @@ static void saveConfig(Config* config, bool overwrite)
 
 	if(buffer)
 	{
-		s32 size = config->tic->api.save(&config->tic->config, buffer);
+		s32 size = config->tic->api.save(&config->cart, buffer);
 
 		fsSaveRootFile(config->fs, CONFIG_TIC_PATH, buffer, size, overwrite);
 
@@ -312,7 +343,7 @@ static void reset(Config* config)
 
 static void save(Config* config)
 {
-	memcpy(&config->tic->config, &config->tic->cart, sizeof(tic_cartridge));
+	memcpy(&config->cart, &config->tic->cart, sizeof(tic_cartridge));
 	readConfig(config);
 	saveConfig(config, true);
 
@@ -321,13 +352,12 @@ static void save(Config* config)
 
 void initConfig(Config* config, tic_mem* tic, FileSystem* fs)
 {
-	*config = (Config)
 	{
-		.tic = tic,
-		.save = save,
-		.reset = reset,
-		.fs = fs,
-	};
+		config->tic = tic;
+		config->save = save;
+		config->reset = reset;
+		config->fs = fs;
+	}
 
 	setDefault(config);
 

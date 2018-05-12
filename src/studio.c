@@ -133,12 +133,12 @@ static struct
 	struct
 	{
 		s32 counter;
-		char message[STUDIO_TEXT_BUFFER_WIDTH];
+		char message[TIC80_WIDTH];
 	} popup;
 
 	struct
 	{
-		char text[STUDIO_TEXT_BUFFER_WIDTH];
+		char text[TIC80_WIDTH];
 	} tooltip;
 
 	struct
@@ -293,7 +293,7 @@ tic_palette* getBankPalette()
 
 void playSystemSfx(s32 id)
 {
-	const tic_sample* effect = &impl.studio.tic->config.bank0.sfx.samples.data[id];
+	const tic_sample* effect = &impl.config->cart.bank0.sfx.samples.data[id];
 	impl.studio.tic->api.sfx_ex(impl.studio.tic, id, effect->note, effect->octave, -1, 0, MAX_VOLUME, 0);
 }
 
@@ -417,7 +417,7 @@ bool fromClipboard(void* data, s32 size, bool flip, bool remove_white_spaces)
 
 				if(valid) str2buf(clipboard, strlen(clipboard), data, flip);
 
-				free(clipboard);
+				getSystem()->freeClipboardText(clipboard);
 
 				return valid;
 			}
@@ -436,7 +436,7 @@ static void drawExtrabar(tic_mem* tic)
 {
 	enum {Size = 7};
 
-	s32 x = (COUNT_OF(Modes) + 1) * Size + 17 * TIC_FONT_WIDTH;
+	s32 x = (COUNT_OF(Modes) + 1) * Size + 102;
 	s32 y = 0;
 
 	static const u8 Icons[] =
@@ -532,7 +532,7 @@ static void drawBankIcon(s32 x, s32 y)
 {
 	tic_mem* tic = impl.studio.tic;
 
-	tic_rect rect = {x, y, TIC_FONT_WIDTH, TIC_FONT_HEIGHT};
+	tic_rect rect = {x, y, tic->font.width, tic->font.height};
 
 	static const u8 Icon[] =
 	{
@@ -574,9 +574,11 @@ static void drawBankIcon(s32 x, s32 y)
 
 		enum{Size = TOOLBAR_SIZE};
 
+		x += Size+2;
+
 		for(s32 i = 0; i < TIC_EDITOR_BANKS; i++)
 		{
-			tic_rect rect = {x + 2 + (i+1)*Size, 0, Size, Size};
+			tic_rect rect = {x + i*Size, 0, Size, Size};
 
 			bool over = false;
 			if(checkMousePos(&rect))
@@ -595,7 +597,7 @@ static void drawBankIcon(s32 x, s32 y)
 			if(i == impl.bank.indexes[mode])
 				tic->api.rect(tic, rect.x, rect.y, rect.w, rect.h, tic_color_red);
 
-			tic->api.draw_char(tic, '0' + i, rect.x+1, rect.y+1, i == impl.bank.indexes[mode] ? tic_color_white : over ? tic_color_red : tic_color_peach);
+			tic->api.draw_char(tic, '0' + i, rect.x+(Size-tic->font.width+1)/2, rect.y+1, i == impl.bank.indexes[mode] ? tic_color_white : over ? tic_color_red : tic_color_peach);
 
 		}
 
@@ -612,7 +614,7 @@ static void drawBankIcon(s32 x, s32 y)
 				0b00000000,
 			};
 
-			tic_rect rect = {x + 4 + (TIC_EDITOR_BANKS+1)*Size, 0, Size, Size};
+			tic_rect rect = {x + 2 + TIC_EDITOR_BANKS*Size, 0, Size, Size};
 
 			bool over = false;
 
@@ -1481,7 +1483,7 @@ static void drawDesyncLabel(u32* frame)
 		
 		enum{sx = TIC80_WIDTH-24, sy = 8, Cols = sizeof DesyncLabel[0]*BITS_IN_BYTE, Rows = COUNT_OF(DesyncLabel)};
 
-		const u32* pal = tic_palette_blit(&impl.studio.tic->config.bank0.palette);
+		const u32* pal = tic_palette_blit(&impl.config->cart.bank0.palette);
 		const u32* color = &pal[tic_color_red];
 
 		for(s32 y = 0; y < Rows; y++)
@@ -1506,7 +1508,7 @@ static void recordFrame(u32* pixels)
 
 			if(impl.video.frame % TIC_FRAMERATE < TIC_FRAMERATE / 2)
 			{
-				const u32* pal = tic_palette_blit(&impl.studio.tic->config.bank0.palette);
+				const u32* pal = tic_palette_blit(&impl.config->cart.bank0.palette);
 				drawRecordLabel(pixels, TIC80_WIDTH-24, 8, &pal[tic_color_red]);
 			}
 
@@ -1522,6 +1524,8 @@ static void recordFrame(u32* pixels)
 
 static void drawPopup()
 {
+	tic_mem* tic = impl.studio.tic;
+
 	if(impl.popup.counter > 0)
 	{
 		impl.popup.counter--;
@@ -1531,13 +1535,13 @@ static void drawPopup()
 		enum{Dur = TIC_FRAMERATE/2};
 
 		if(impl.popup.counter < Dur)
-			anim = -((Dur - impl.popup.counter) * (TIC_FONT_HEIGHT+1) / Dur);
+			anim = -((Dur - impl.popup.counter) * (tic->font.height+1) / Dur);
 		else if(impl.popup.counter >= (POPUP_DUR - Dur))
-			anim = (((POPUP_DUR - Dur) - impl.popup.counter) * (TIC_FONT_HEIGHT+1) / Dur);
+			anim = (((POPUP_DUR - Dur) - impl.popup.counter) * (tic->font.height+1) / Dur);
 
-		impl.studio.tic->api.rect(impl.studio.tic, 0, anim, TIC80_WIDTH, TIC_FONT_HEIGHT+1, (tic_color_red));
+		impl.studio.tic->api.rect(impl.studio.tic, 0, anim, TIC80_WIDTH, tic->font.height+1, (tic_color_red));
 		impl.studio.tic->api.text(impl.studio.tic, impl.popup.message, 
-			(s32)(TIC80_WIDTH - strlen(impl.popup.message)*TIC_FONT_WIDTH)/2,
+			(s32)(TIC80_WIDTH - strlen(impl.popup.message)*tic->font.width)/2,
 			anim + 1, (tic_color_white));
 	}
 }
@@ -1562,8 +1566,8 @@ static void renderStudio()
 		case TIC_DIALOG_MODE:
 		case TIC_MENU_MODE:
 		case TIC_SURF_MODE:
-			sfx = &impl.studio.tic->config.bank0.sfx;
-			music = &impl.studio.tic->config.bank0.music;
+			sfx = &impl.config->cart.bank0.sfx;
+			music = &impl.config->cart.bank0.music;
 			break;
 		default:
 			sfx = &impl.studio.tic->cart.banks[impl.bank.index.sfx].sfx;
@@ -1626,12 +1630,17 @@ static void renderStudio()
 
 static void updateSystemFont()
 {
-	memset(impl.studio.tic->font.data, 0, sizeof(tic_font));
+	tic_mem* tic = impl.studio.tic;
+
+	memset(tic->font.data, 0, sizeof tic->font.data);
+
+	tic->font.width = impl.config->data.theme.font.width;
+	tic->font.height = impl.config->data.theme.font.height;
 
 	for(s32 i = 0; i < TIC_FONT_CHARS; i++)
 		for(s32 y = 0; y < TIC_SPRITESIZE; y++)
 			for(s32 x = 0; x < TIC_SPRITESIZE; x++)
-				if(tic_tool_peek4(&impl.studio.tic->config.bank0.sprites.data[i], TIC_SPRITESIZE*(y+1) - x-1))
+				if(tic_tool_peek4(&impl.config->cart.bank0.sprites.data[i], TIC_SPRITESIZE*(y+1) - x-1))
 					impl.studio.tic->font.data[i*BITS_IN_BYTE+y] |= 1 << x;
 }
 
@@ -1760,7 +1769,7 @@ static void studioTick()
 			}
 			break;
 		default:
-			memcpy(&tic->ram.vram.palette, &tic->config.bank0.palette, sizeof(tic_palette));
+			memcpy(&tic->ram.vram.palette, &impl.config->cart.bank0.palette, sizeof(tic_palette));
 			break;
 		}
 
